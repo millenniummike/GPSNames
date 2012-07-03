@@ -15,6 +15,9 @@ Ext.define('GolfTracker.model.Courses', {
         ],
         validations: [
 
-        ]
+        ],
+         associations: [
+        {type: 'hasMany', model: 'GolfTracker.model.Holes', name: 'holes'}
+    ]
     }
 });

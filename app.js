@@ -1,8 +1,6 @@
-
-
 Ext.Loader.setConfig({enabled: true});
 Ext.Loader.setPath({
-    'Ext': '../../sencha/src'
+    'Ext': 'resources'
 });
 
 
@@ -20,18 +18,12 @@ Ext.application({
         144: 'resources/icons/icon@114.png'
     },
 
-    models: ['Settings','Courses','Games','Holes','Shots'],
-    stores: ['Settings','Courses','Games','Holes','Shots'],
-    views: ['Main','Show','Edit','Settings','Add','PlayerScore','Games','Courses','CourseAdd'],
+    models: ['Settings','Courses','Holes','Shots'],
+    stores: ['Settings','Courses','Holes','Shots'],
+    views: ['Main','Show','Edit','Settings','Add','PlayerScore','Courses','CourseAdd'],
     controllers: ['Application'],
 
     launch: function() {
-        // global variables
-
-        this.holes_id='';
-        this.courses_id='';
-        this.games_id='';
- 
         Ext.Viewport.add({
             xclass: 'GolfTracker.view.Main'
         });

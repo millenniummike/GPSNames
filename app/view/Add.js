@@ -9,52 +9,56 @@ Ext.define('GolfTracker.view.Add', {
         items: [
             {
                 
-                
                 xtype: 'formpanel',
                 id: 'formpanel',
 
                 items: [
 
                     {
+                        
                         xtype: 'fieldset',
                         defaults: {
                             labelWidth: '100%'
                         },
-                        title: 'Hole Details',
+                        title: 'Details',
                         items: [
-                        
                             {
                                 xtype: 'textfield',
+                                label: 'Course Name',
+                                name: 'coursename',
+                                id: 'coursename',
+                                value: ''
+                                
+                            },
+                              {
+                                  
+                                xtype: 'spinnerfield',
+                                label: 'Hole',
+                                name: 'hole',
+                                id: 'hole',
+                                minValue: 1,
+                                maxValue: 18,
+                                increment: 1,
+                                cycle: true,
+                                listeners: {
+                                spin: function (spinner, value, dir) {
+                                   var application= GolfTracker.app.getController('Application');
+                                 application.onContactAddChangeHole();
+                                } // spin
+                            } // listeners
+                               
+                            },
+                                 {
+                                xtype: 'spinnerfield',
                                 label: 'Par',
-                                name:  'par',
-                                id: 'par'
+                                name: 'par',
+                                id: 'par',
+                                minValue: 3,
+                                maxValue: 5,
+                                increment: 1,
+                                cycle: true
                             },
-                            {
-                                xtype: 'textfield',
-                                label: 'Distance',
-                                name:  'distance',
-                                id: 'distance'
-                            },
-                            {
-                            xtype: 'button',
-                            text: 'Update Hole',
-                            ui: 'confirm',
-                            handler: function() { 
-                                alert ("update hole!");
-                            }
-                            },
-                        ]
-                    },
-                    {
-                        
-                        xtype: 'fieldset',
-                        defaults: {
-                            labelWidth: '100%'
-                        },
-                        title: 'Shot Details',
-                        items: [
-                        
-                         
+                            
         {          xtype: 'selectfield',
                                 label: 'Club Used',
                                 name: 'club',
@@ -76,33 +80,14 @@ Ext.define('GolfTracker.view.Add', {
                                     
                                 ]
                     },
-                                                                                 {
-                            xtype: 'button',
-                            text: 'Play Shot',
-                            ui: 'confirm',
-                            handler: function() { 
-                                 var club=Ext.getCmp('club').getValue();
-                                 var image;
-
-                                    if (club=='Driver') {image='http://www.gpsname.com/images/golf/1.png';}
-                                    if (club=='5 Wood') {image='http://www.gpsname.com/images/golf/2.png';}
-                                    if (club=='3 Wood') {image='http://www.gpsname.com/images/golf/3.png';}
-                                    if (club=='Hybrid') {image='http://www.gpsname.com/images/golf/4.png';}
-                                    if (club=='9 Iron') {image='http://www.gpsname.com/images/golf/5.png';}
-                                    if (club=='8 Iron') {image='http://www.gpsname.com/images/golf/6.png';}
-                                    if (club=='7 Iron') {image='http://www.gpsname.com/images/golf/7.png';}
-                                    if (club=='6 Iron') {image='http://www.gpsname.com/images/golf/5.png';}
-                                    if (club=='5 Iron') {image='http://www.gpsname.com/images/golf/5.png';}
-                                    if (club=='4 Iron') {image='http://www.gpsname.com/images/golf/5.png';}
-                                    if (club=='Pitching Wedge') {image='http://www.gpsname.com/images/golf/11.png';}
-                                    if (club=='Putter') {image='http://www.gpsname.com/images/golf/12.png';}
-                                    
-                                 var application= GolfTracker.app.getController('Application');
-                                 application.onAddShot(''+Ext.getCmp('lat').getValue(),''+Ext.getCmp('lon').getValue(),''+club,''+image);
-                            }
-                        },
-                        
                             
+                            {
+                                xtype: 'textfield',
+                                label: 'Shot',
+                                name: 'shot',
+                                id: 'shot',
+                                value: '1'
+                            },
                             {
                                 xtype: 'hiddenfield',
                                 label: 'Lat',
@@ -117,7 +102,6 @@ Ext.define('GolfTracker.view.Add', {
                             }
                         ]
                     },
-   
 
 
                      {
@@ -130,9 +114,7 @@ Ext.define('GolfTracker.view.Add', {
                     mapTypeId: google.maps.MapTypeId.SATELLITE
                 }
                 
-                
             }
-
                 ]
             }
         ], 

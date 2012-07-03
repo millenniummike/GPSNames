@@ -3,17 +3,24 @@ Ext.define('GolfTracker.view.Courses', {
     
     xtype: 'courses',
     id: 'courseslist',
+    onItemDisclosure:true,
+    listeners:{
+        afterrender:function(cmp){
+            this.store.each(function(record,index,itemsCount){
+                if(record.data.type != "link"){
+                    Ext.select('.x-list-disclosure',cmp.getNode(index)).remove();
+                }
+            });                         
+        },
+        itemtap:function(list,index,item){
+            var record = this.store.getAt(index);
+            if(record.data.type == "link"){
+                // do action
+            }               
+        }
+    },
 
     config: {
-            onItemDisclosure:true,
-listeners : {
-  itemtap : function(record,index,item,e){
-  //alert (e.data.name);
-  var application= GolfTracker.app.getController('Application');
-  application.onShowGames(e.data.id);
- 
-  }
-},
         items:[
 ], 
         title: 'Courses',

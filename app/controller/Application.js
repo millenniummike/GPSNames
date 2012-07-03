@@ -6,14 +6,12 @@ Ext.define('GolfTracker.controller.Application', {
             main: 'mainview',
             editButton: '#editButton',
             holes: 'holes',
-            games: 'games',
             showContact: 'contact-show',
             editContact: 'contact-edit',
             addContact: 'contact-add',
             showSettings: 'settings-show',
             saveButton: '#saveButton',
             addButton: '#addButton',
-            addGameButton: '#addGameButton',
             actionButton: '#actionButton',
             trashButton: '#trashButton',
             homeButton: '#homeButton',
@@ -37,9 +35,6 @@ Ext.define('GolfTracker.controller.Application', {
             },
             addButton: {
                 tap: 'onCourseAddSave'
-            },
-            addGameButton: {
-                tap: 'onAddGameButton'
             },
              addContact: {
                 change: 'onAddContactChange'
@@ -76,27 +71,30 @@ params:{filter: field.getValue()}
 },
 
     onMainPush: function(view, item) {
-     // alert ("push="+item.xtype);
-      
-      this.hideAddButton(); 
-      this.hideAddGameButton();
+        var editButton = this.getEditButton();
 
-        if (item.xtype == "games") {
-            this.showAddGameButton();
+        if (item.xtype == "contact-show") {
+            this.getContacts().deselectAll();
+
+            this.showEditButton();
+        } else {
+            this.hideEditButton();
         }
     },
 
     onMainPop: function(view, item) {
-        //alert ("pop="+item.xtype);
-          
-        this.hideAddButton(); 
-        this.hideAddGameButton();
-      
-        if (item.xtype == "games"||item.xtype == "course-add-show") {   
+        //alert (item.xtype);
+        if (item.xtype == "settings-show") {
         this.showAddButton();
         }
-        if (item.xtype == "holes") {   
-        this.showAddGameButton();
+        if (item.xtype == "contact-add") {
+        this.hideAddButton();
+        }
+        
+        if (item.xtype == "contact-edit") {
+            this.showEditButton();
+        } else {
+            this.hideEditButton();
         }
     },
 
@@ -131,35 +129,6 @@ params:{filter: field.getValue()}
     onContactChange: function() {
         this.showSaveButton();
     },
-    
-    onAddGameButton: function() {
-        alert ("adding game! course_id="+this.courses_id);
-        
-         // create a new game using course id
-                                var games = Ext.create('GolfTracker.model.Games', {name:'A test game',courses_id:this.courses_id});
-                                games.save();
-                                
-                                //todo - get games id
-                                
-                                this.games_id=1;
-                                
-                                 // create a new game using course id
-                                var holes;
-                                
-                                for (counter=1;counter<19;counter++){
-                                holes = Ext.create('GolfTracker.model.Holes', {hole:counter,games_id:this.games_id});
-                                holes.save();
-                                }
-                                
-
-                                var coursesStore = Ext.getStore('Courses');
-                                coursesStore.load();
-                                var Store = Ext.getStore('Games');
-                                Store.load();
-                                var Store = Ext.getStore('Holes');
-                                Store.load();
-        
-    },
 
     onCourseAddSave: function() {
 
@@ -180,7 +149,9 @@ params:{filter: field.getValue()}
         this.getMain().push(this.showSettings);
         this.hideAddButton();
         
-    
+        // create a new course
+        var courses = Ext.create('GolfTracker.model.Courses', {id:1,name:'Miami Goofy Course'});
+        courses.save();
         
         // add a new hole using above course id
         var holes=courses.holes();
@@ -210,16 +181,6 @@ params:{filter: field.getValue()}
 
         
     },
-    
-     onAddShot: function(lat,lon,club,image) {
-           
-           // create a new shot
-           var shots = Ext.create('GolfTracker.model.Shots', {lat:lat,lon:lon,holes_id:this.holes_id,club:club,image:image});
-           shots.save();
-           
-           alert ("add shot! lat="+lat+" hole_id="+this.holes_id+" Game="+this.games_id+" Course="+this.course_id);
-          
-    },
 
     onContactSave: function() {
         var record = this.getEditContact().saveRecord();
@@ -228,13 +189,11 @@ params:{filter: field.getValue()}
        // this.getMain().pop();
     },
     
-    onAction: function(hole_id) {
-       
-       this.holes_id=hole_id;
+    onAction: function() {
         
       if (!this.showAction) {
             this.showAction = Ext.create('GolfTracker.view.Add');
-        } 
+        }
         this.showAddButton();
         this.getMain().push(this.showAction);
         
@@ -245,19 +204,12 @@ params:{filter: field.getValue()}
     
         onTrash: function() {
         
-        var Store = Ext.getStore('Holes');
-        Store.clearData();
-        Store.sync();
-        Store = Ext.getStore('Courses');
-        Store.clearData();
-        Store.sync();
-        Store = Ext.getStore('Games');
-        Store.clearData();
-        Store.sync();
-        Store = Ext.getStore('Shots');
-        Store.clearData();
-        Store.sync();
-  
+        var contactsStore = Ext.getStore('Contacts');
+        contactsStore.clearData();
+        contactsStore.sync();
+        var holesStore = Ext.getStore('Holes');
+        holesStore.clearData();
+        holesStore.sync();
 
    
     },
@@ -285,41 +237,6 @@ params:{filter: field.getValue()}
         var item = settingsStore.getAt(0);
         
         this.showSettings.loadName(item.get('username'),item.get('password'));
-      
-        
-    },
-     onShowGames: function(course_id) {
-         this.courses_id=''+course_id;
-
-        if (!this.showGames) {
-            this.showGames = Ext.create('GolfTracker.view.Games');
-        }
-        
-        var store = Ext.getStore('Games');
-        // clear all existing filters
-        store.clearFilter();
-        store.filter('courses_id', course_id);
-        
-        // get game_id
-        
-        
-            
-        this.getMain().push(this.showGames);
-      
-        
-    },
-         onShowHoles: function(game_id) {
-             this.games_id=game_id;
-
-        if (!this.showHoles) {
-            this.showHoles = Ext.create('GolfTracker.view.Holes');
-        }
-        //alert ("get games for course id "+course_id)
-        var store = Ext.getStore('Holes');
-        // clear all existing filters
-        store.clearFilter();
-        store.filter('games_id', this.games_id);
-        this.getMain().push(this.showHoles);
       
         
     },
@@ -357,23 +274,22 @@ params:{filter: field.getValue()}
     
        showAddButton: function() {
         var addButton = this.getAddButton();
+
+        if (!addButton.isHidden()) {
+            return;
+        }
+
         addButton.show();
     },
     
     
     hideAddButton: function() {
         var addButton = this.getAddButton();
-        addButton.hide();
-    },
-    
-    showAddGameButton: function() {
-        var addButton = this.getAddGameButton();
-        addButton.show();
-    },
-    
-    
-    hideAddGameButton: function() {
-        var addButton = this.getAddGameButton();
+
+        if (addButton.isHidden()) {
+            return;
+        }
+
         addButton.hide();
     },
     

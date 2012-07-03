@@ -47,25 +47,9 @@ Ext.define('GolfTracker.view.Main', {
                 {
                     xtype: 'button',
                     id: 'addButton',
-                    text: 'Add Course',
+                    text: 'Add',
                     ui: 'sencha',
                     align: 'right',
-                    hideAnimation: Ext.os.is.Android ? false : {
-                        type: 'fadeOut',
-                        duration: 200
-                    },
-                    showAnimation: Ext.os.is.Android ? false : {
-                        type: 'fadeIn',
-                        duration: 200
-                    }
-                },
-                 {
-                    xtype: 'button',
-                    id: 'addGameButton',
-                    text: 'Add Game',
-                    ui: 'sencha',
-                    align: 'right',
-                    hidden: true,
                     hideAnimation: Ext.os.is.Android ? false : {
                         type: 'fadeOut',
                         duration: 200
@@ -118,8 +102,9 @@ Ext.define('GolfTracker.view.Main', {
                     // Add a bunch of buttons into the toolbar
                     items: [
                         { height:'48px',iconAlign:'top',text:'Courses',iconMask: true, iconCls: 'home', id:'homeButton' },
-                        { height:'48px',iconAlign:'top',text:'Score Card',iconMask: true, iconCls: 'settings', id:'scoreButton' },
-                        { height:'48px',iconAlign:'top',text:'Clear All',iconMask: true, iconCls: 'trash', id:'trashButton' }
+                        { height:'48px',iconAlign:'top',text:'Add Shot',iconMask: true, iconCls: 'add', id:'actionButton' },
+                        { height:'48px',iconAlign:'top',text:'Score Card',iconMask: true, iconCls: 'list', id:'scoreButton' },
+                        { height:'48px',iconAlign:'top',text:'Clear',iconMask: true, iconCls: 'trash', id:'trashButton' }
            
                     ]
                 }			

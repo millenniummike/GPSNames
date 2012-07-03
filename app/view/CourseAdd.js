@@ -10,7 +10,6 @@ Ext.define('GolfTracker.view.CourseAdd', {
             {
                 
                 xtype: 'formpanel',
-                id: 'formpanel',
                 items: [
                     {
                         xtype: 'fieldset',
@@ -39,13 +38,6 @@ Ext.define('GolfTracker.view.CourseAdd', {
                             text: 'Add',
                             ui: 'confirm',
                             handler: function() { 
-                                
-                                    // create a new course
-                                var formValues = Ext.getCmp('formpanel').getValues();
-                                var courses = Ext.create('GolfTracker.model.Courses', formValues);
-                                courses.save();
-   
-                                
                             }
                         }
                 ]
