@@ -27,8 +27,12 @@ Ext.application({
     controllers: ['Application'],
         launch: function() {
         
+        
+        var settingsStore = Ext.getStore('Settings');
+        var item = settingsStore.getAt(0);
+        
         var store = Ext.getStore('Locations');
-        store.getProxy().setExtraParam('gpsname', gpsname_user);   
+        store.getProxy().setExtraParam('gpsname', item.data.username);   
         store.load();
         
         Ext.Viewport.add({
