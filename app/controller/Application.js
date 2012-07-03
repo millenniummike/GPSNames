@@ -7,15 +7,16 @@ Ext.define('GPSName.controller.Application', {
             editButton: '#editButton',
             contacts: 'contacts',
             tags: 'tags',
-            showContact: 'contact-show',
+            showLocation: 'location-show',
             editContact: 'contact-edit',
             addContact: 'contact-add',
             showSettings: 'settings-show',
-            saveButton: '#saveButton',
+            updateButton: '#updateButton',
             addButton: '#addButton',
             actionButton: '#actionButton',
             homeButton: '#homeButton',
             settingsButton: '#settingsButton',
+            friendsButton: '#friendsButton',
             searchbox: '#searchbox',
             tagfilter: '#tagfilter'
         },
@@ -31,11 +32,11 @@ Ext.define('GPSName.controller.Application', {
             contacts: {
                 itemtap: 'onContactSelect'
             },
-            saveButton: {
-                tap: 'onContactSave'
+            updateButton: {
+                tap: 'onLocationUpdate'
             },
             addButton: {
-                tap: 'onContactAddSave'
+                tap: 'onLocationAddSave'
             },
              addContact: {
                 change: 'onAddContactChange'
@@ -52,6 +53,9 @@ Ext.define('GPSName.controller.Application', {
             settingsButton: {
                 tap: 'onSettings'
             },
+            friendsButton: {
+                tap: 'onFriends'
+            },
             searchbox: {
                 keyup: 'onSearchKeyup',
                 clearicontap: 'onSearchKeyup'
@@ -65,10 +69,13 @@ Ext.define('GPSName.controller.Application', {
     },
 
 onSearchKeyup: function(field, e) {
-Ext.getStore('Contacts').load({
-params:{gpsname: field.getValue()}
-});
-
+    
+     var store = Ext.getStore('Locations');
+        // clear all existing filters
+        store.clearFilter();
+        store.filter('title', field.getValue()); 
+        store.getProxy().setExtraParam('gpsname', gpsname_user);   
+        store.load();
 
 },
 ontagfilterKeyup: function(field, e) {
@@ -81,9 +88,8 @@ params:{filter: field.getValue()}
 },
 
     onMainPush: function(view, item) {
-        var editButton = this.getEditButton();
-
-        if (item.xtype == "contact-show") {
+        //alert("push "+item.xtype);
+        if (item.xtype == "location-show") {
             this.getContacts().deselectAll();
 
             this.showEditButton();
@@ -93,9 +99,11 @@ params:{filter: field.getValue()}
     },
 
     onMainPop: function(view, item) {
+        //alert ("pop "+item.xtype);
+        
         this.hideAddButton();
         
-        if (item.xtype == "contact-edit") {
+        if (item.xtype == "location-edit"||item.xtype == "contact-edit") {
             this.showEditButton();
         } else {
             this.hideEditButton();
@@ -106,7 +114,7 @@ params:{filter: field.getValue()}
         var editButton = this.getEditButton();
 
         if (!this.showContact) {
-            this.showContact = Ext.create('GPSName.view.gpsname.Show');
+            this.showContact = Ext.create('GPSName.view.Show');
         }
 
         // Bind the record onto the show contact view
@@ -118,11 +126,11 @@ params:{filter: field.getValue()}
 
     onContactEdit: function() {
         if (!this.editContact) {
-            this.editContact = Ext.create('GPSName.view.gpsname.Edit');
+            this.editContact = Ext.create('GPSName.view.Edit');
         }
 
         // Bind the record onto the edit contact view
-        this.editContact.setRecord(this.getShowContact().getRecord());
+      this.editContact.setRecord(this.getShowLocation().getRecord());
 
         this.getMain().push(this.editContact);
     },
@@ -131,27 +139,26 @@ params:{filter: field.getValue()}
     },
 
     onContactChange: function() {
-        this.showSaveButton();
+        this.showUpdateButton();
     },
 
-    onContactAddSave: function() {
+    onLocationAddSave: function() {
         
        var record = this.getAddContact().saveRecord();
        this.getAddContact().updateRecord(record);
+       alert ('Adding new record');
 
     },
 
-    onContactSave: function() {
-        var record = this.getEditContact().saveRecord();
-        this.getShowContact().updateRecord(record);
-        
-       // this.getMain().pop();
+    onLocationUpdate: function() {
+        alert ("Updating record");
+        this.hideUpdateButton();
     },
     
     onAction: function() {
         
       if (!this.showAction) {
-            this.showAction = Ext.create('GPSName.view.gpsname.Add');
+            this.showAction = Ext.create('GPSName.view.Add');
         }
         this.getMain().push(this.showAction);
         
@@ -171,7 +178,7 @@ params:{filter: field.getValue()}
  onSettings: function() {
 
         if (!this.showSettings) {
-            this.showSettings = Ext.create('GPSName.view.gpsname.Settings');
+            this.showSettings = Ext.create('GPSName.view.Settings');
         }
         
         this.showSettings.setRecord(this.getShowSettings().getRecord());
@@ -185,6 +192,13 @@ params:{filter: field.getValue()}
       
         
     },
+     onFriends: function() {
+        if (!this.showFriends) {
+            this.showFriends = Ext.create('GPSName.view.Friends');
+        } 
+        this.getMain().push(this.showFriends);     
+        
+    },
     showEditButton: function() {
         var editButton = this.getEditButton();
 
@@ -192,7 +206,7 @@ params:{filter: field.getValue()}
             return;
         }
 
-        this.hideSaveButton();
+        this.hideUpdateButton();
 
         editButton.show();
     },
@@ -207,14 +221,14 @@ params:{filter: field.getValue()}
         editButton.hide();
     },
 
-    showSaveButton: function() {
-        var saveButton = this.getSaveButton();
+    showUpdateButton: function() {
+        var updateButton = this.getUpdateButton();
 
-        if (!saveButton.isHidden()) {
+        if (!updateButton.isHidden()) {
             return;
         }
 
-        saveButton.show();
+        updateButton.show();
     },
     
        showAddButton: function() {
@@ -240,14 +254,14 @@ params:{filter: field.getValue()}
     
     
 
-    hideSaveButton: function() {
-        var saveButton = this.getSaveButton();
+    hideUpdateButton: function() {
+        var updateButton = this.getUpdateButton();
 
-        if (saveButton.isHidden()) {
+        if (updateButton.isHidden()) {
             return;
         }
 
-        saveButton.hide();
+        updateButton.hide();
     }
 });
 

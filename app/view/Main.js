@@ -1,3 +1,4 @@
+
 Ext.define('GPSName.view.Main', {
     extend: 'Ext.navigation.View',
     xtype: 'mainview',
@@ -29,8 +30,8 @@ Ext.define('GPSName.view.Main', {
                 },
                 {
                     xtype: 'button',
-                    id: 'saveButton',
-                    text: 'Save',
+                    id: 'updateButton',
+                    text: 'Update',
                     ui: 'sencha',
                     align: 'right',
                     hidden: true,
@@ -103,7 +104,7 @@ Ext.define('GPSName.view.Main', {
                     items: [
                         { height:'44px',iconAlign:'top',text:'home',iconMask: true, iconCls: 'home', id:'homeButton' },
                         { height:'44px',iconAlign:'top',text:'add',iconMask: true, iconCls: 'add', id:'actionButton' },
-                        { height:'44px',iconAlign:'top',text:'friends',iconMask: true, iconCls: 'favorites', id:'anotherButton' },
+                        { hidden:true,height:'44px',iconAlign:'top',text:'friends',iconMask: true, iconCls: 'favorites', id:'friendsButton' },
                         { height:'44px',iconAlign:'top',text:'account',iconMask: true, iconCls: 'settings', id:'settingsButton' }
                     ]
                 }			

@@ -1,4 +1,4 @@
-Ext.define('GPSName.view.gpsname.Settings', {
+Ext.define('GPSName.view.Settings', {
     extend: 'Ext.Container',
     xtype: 'settings-show',
 
@@ -32,26 +32,6 @@ Ext.define('GPSName.view.gpsname.Settings', {
                             }
                         ]
                     },
-                     {
-                        xtype: 'fieldset',
-                        defaults: {
-                            labelWidth: '100%'
-                        },
-                        title: 'Navigation',
-                        items: [
-                            {
-                                xtype: 'checkboxfield',
-                                label: 'Google',
-                                name:  'google'
-                            },
-                            {
-                                xtype: 'checkboxfield',
-                                label: 'Waze',
-                                name: 'waze'
-                            }
-                        ]
-                    },
-
                                     {
                             xtype: 'button',
                             text: 'Update',

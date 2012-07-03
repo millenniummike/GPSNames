@@ -1,16 +1,16 @@
-Ext.define('GPSName.view.gpsname.Add', {
+Ext.define('GPSName.view.Edit', {
     extend: 'Ext.Container',
-    xtype: 'contact-add',
+    xtype: 'contact-edit',
 
     config: {
-        title: 'Add GPSName',
+        title: 'Edit GPSName',
         layout: 'fit',
 
         items: [
             {
                 
                 xtype: 'formpanel',
-                url: 'http://www.gpsname.com/index.php/sencha/add',
+                url: 'http://www.gpsname.com/index.php/sencha/update',
 
                 items: [
                     {
@@ -22,13 +22,14 @@ Ext.define('GPSName.view.gpsname.Add', {
                         items: [
                             {
                                 xtype: 'textfield',
+                                label: 'Id',
+                                name: 'id',
+                                hidden: true
+                            },
+                            {
+                                xtype: 'textfield',
                                 label: 'Title',
-                                name: 'title',
-                                defaults: {
-                                    required: true,
-                                    labelAlign: 'left',
-                                    labelWidth: '40%'
-                                }
+                                name: 'title'
                             },
                             {
                                 xtype: 'textareafield',
@@ -48,21 +49,17 @@ Ext.define('GPSName.view.gpsname.Add', {
                             {
                                 xtype: 'textfield',
                                 label: 'Lat',
-                                name: 'lat',
-                                id: 'lat'
+                                name: 'lat'
                             },
                             {
                                 xtype: 'textfield',
                                 label: 'Lon',
-                                name: 'lon',
-                                id: 'lon'
+                                name: 'lon'
                             }
                         ]
                     },
                      {
                         xtype: 'fieldset',
-                        layout: 'vbox',
-
                         defaults: {
                             labelWidth: '100%'
                         },
@@ -75,10 +72,9 @@ Ext.define('GPSName.view.gpsname.Add', {
                                 id: 'tagfilter'
                             },
                             { xtype: 'tags',
-                              name: 'tags',
-                              id: 'tags',
-                              height:'50'
-                       },
+                            id:'tags_edit',
+                            name:'tags_edit',
+                            height:50},
                      {
                                 xtype: 'textfield',
                                 label: 'Tagged',
@@ -86,7 +82,6 @@ Ext.define('GPSName.view.gpsname.Add', {
                                 id: 'tagged'
                             },
                             
-                                                   
                             {          xtype: 'selectfield',
                                 label: 'Category',
                                 name: 'category',
@@ -98,8 +93,8 @@ Ext.define('GPSName.view.gpsname.Add', {
 
                                 ]
                     },
-                    
-                  {          xtype: 'selectfield',
+                            
+                                  {          xtype: 'selectfield',
                                 label: 'Who can See?',
                                 name: 'permissions',
                                 options: [
@@ -114,28 +109,27 @@ Ext.define('GPSName.view.gpsname.Add', {
 
                         ]
                     },
-
                      {
                 xtype: 'map',
-                id:'map_add',
+                id: 'map_edit',
                 height: 200,
                 useCurrentLocation: true
                 
             },
-                        {
+                                    {
                             xtype: 'button',
-                            text: 'Add',
+                            text: 'Update',
                             ui: 'confirm',
                             handler: function() {
                                 var formValues = this.up('formpanel').getValues();
-                                var model = Ext.ModelMgr.create(formValues,'GPSName.model.Contact');      
+                                var model = Ext.ModelMgr.create(formValues,'GPSName.model.Locations');      
                                 var errors = model.validate(),message = "";
                                 var errorMessage;
                                        
                                  if(errors.isValid()){  
                                     this.up('formpanel').submit();
                                     errorMessage='';
-                                    Ext.Msg.alert('Added!');
+                                    Ext.Msg.alert('Updated!');
                                 } else {                                   
                                      errors.each(function (err) {
     
@@ -147,7 +141,7 @@ Ext.define('GPSName.view.gpsname.Add', {
                         }
                 ]
             }
-        ], 
+        ],
 
         listeners: {
             delegate: 'textfield',
@@ -159,45 +153,18 @@ Ext.define('GPSName.view.gpsname.Add', {
 
     updateRecord: function(newRecord) {
         this.down('formpanel').setRecord(newRecord);
-   
     },
 
-     saveRecord: function() {
-        
+    saveRecord: function() {
+        var formPanel = this.down('formpanel'),
+            record = formPanel.getRecord();
+
+        formPanel.updateRecord(record);
+
+        return record;
     },
 
     onKeyUp: function() {
         this.fireEvent('change', this);
-    },
-    
-    loadGPS: function () {
-        
-        var geo = Ext.create('Ext.util.Geolocation', {
-    autoUpdate: false,
-    listeners: {
-        locationupdate: function(geo) {
-            Ext.getCmp('lat').setValue('' + geo.getLatitude());
-            Ext.getCmp('lon').setValue('' + geo.getLongitude());
-            
-            var myLatLng = new google.maps.LatLng(''+geo.getLatitude(),''+geo.getLongitude());
-            var map = Ext.getCmp('map_add').getMap();
-            var marker = new google.maps.Marker({
-              position: myLatLng,
-              map: map
-          });
-
-            marker.setMap(map);
-            
-        },
-        locationerror: function(geo, bTimeout, bPermissionDenied, bLocationUnavailable, message) {
-            if(bTimeout){
-                alert('Timeout occurred.');
-            } else {
-                alert('Error occurred.');
-            }
-        }
-    }
-});
-geo.updateLocation();
     }
 });

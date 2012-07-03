@@ -1,3 +1,6 @@
+// global variables
+var gpsname_user='nick1';   
+
 Ext.Loader.setConfig({enabled: true});
 Ext.Loader.setPath({
     'Ext': 'resources'
@@ -5,7 +8,7 @@ Ext.Loader.setPath({
 
 
 Ext.application({
-    name: 'AddressBook',
+    name: 'GPSName',
 
     phoneStartupScreen: 'resources/loading/Homescreen.jpg',
     tabletStartupScreen: 'resources/loading/Homescreen~ipad.jpg',
@@ -20,15 +23,20 @@ Ext.application({
 
     models: ['Locations','Tags','Settings'],
     stores: ['Locations','Tags','Settings'],
-    views: ['Main'],
+    views: ['Main','Locations','Tags','Add','Edit','Show','Friends'],
     controllers: ['Application'],
-
-    launch: function() {
+        launch: function() {
+        
+        var store = Ext.getStore('Locations');
+        store.getProxy().setExtraParam('gpsname', gpsname_user);   
+        store.load();
+        
         Ext.Viewport.add({
-            xclass: 'GPSname.view.Main'
+            xclass: 'GPSName.view.Main'
         });
-
-
+        
+  
     }
+
 
 });

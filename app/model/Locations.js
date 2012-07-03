@@ -1,4 +1,4 @@
-Ext.define('GPSName.model.Location', {
+Ext.define('GPSName.model.Locations', {
     extend: 'Ext.data.Model',
 
     config: {

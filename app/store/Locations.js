@@ -3,11 +3,13 @@ Ext.define('GPSName.store.Locations', {
 
     config: {
         model: 'GPSName.model.Locations',
-        autoLoad: true,
         sorters: 'title',
         proxy: {
             type: 'ajax',
-            url: 'http://www.onebiglink.com/gpsname.com/index.php/feed/json'
-			}
+            url: 'http://www.onebiglink.com/gpsname.com/index.php/feed/json',
+            extraParams: {
+                gpsname: 'mike'
+            }
+	}
     }
 });

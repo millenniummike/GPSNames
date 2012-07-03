@@ -1,7 +1,7 @@
-Ext.define('GPSName.view.Locations', {
+Ext.define('GPSName.view.Friends', {
     extend: 'Ext.List',
     
-    xtype: 'contacts',
+    xtype: 'friends',
 
     config: {
         items:[
@@ -13,8 +13,8 @@ Ext.define('GPSName.view.Locations', {
                                 id:'searchbox',
                                 align:'center'
                             }], 
-        title: 'GPSNames',
-        cls: 'x-contacts',
+        title: 'GPSName Connections',
+        cls: 'x-friends',
 
         store: 'Locations',
         itemTpl: [

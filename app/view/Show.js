@@ -1,10 +1,10 @@
-Ext.define('GPSName.view.gpsname.Show', {
+Ext.define('GPSName.view.Show', {
     extend: 'Ext.List',
-    xtype: 'contact-show',
+    xtype: 'location-show',
     config: {
 
 
-        baseCls: 'x-show-contact',
+        baseCls: 'x-show-location',
         layout: 'vbox',
         title:'',
      
@@ -24,42 +24,6 @@ Ext.define('GPSName.view.gpsname.Show', {
                 xtype: 'map',
                 height: 200
             },
-            	{
-
-                    xtype: 'fieldset',
-                        defaults: {
-                            labelWidth: '100%'
-                        },
-                        title: 'Navigate Using',
-                        items: [
-              
-			{
-                xtype: 'segmentedbutton',
-                items: [
-                    {
-                        xtype: 'button',
-						ui: 'action',
-                        text: 'Google'
-                    },
-                    {
-                        xtype: 'button',
-						ui: 'action',
-                        text: 'Nokia'
-                    },
-                    {
-                        xtype: 'button',
-						ui: 'action',
-                        text: 'Waze'
-                    },
-                    {
-                        xtype: 'button',
-						ui: 'action',
-                        text: 'Layar'
-                    }
-                ]
-            },
-                ]
-            },
 
             {
                 xtype: 'formpanel',
@@ -75,7 +39,10 @@ Ext.define('GPSName.view.gpsname.Show', {
 					{
                         xtype: 'button',
 			ui: 'confirm',
-                        text: 'Send'
+                        text: 'Send',
+                        handler: function() {
+                            alert ("Sending email!");
+                        }
                     }
                 ]
             }
