@@ -1,4 +1,4 @@
-Ext.define('AddressBook.model.Tags', {
+Ext.define('GPSName.model.Tags', {
     extend: 'Ext.data.Model',
 
     config: {

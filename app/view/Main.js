@@ -1,14 +1,8 @@
-Ext.define('AddressBook.view.Main', {
+Ext.define('GPSName.view.Main', {
     extend: 'Ext.navigation.View',
     xtype: 'mainview',
 
     requires: [
-        'AddressBook.view.Contacts',
-        'AddressBook.view.Tags',
-        'AddressBook.view.gpsname.Show',
-        'AddressBook.view.gpsname.Edit',
-        'AddressBook.view.gpsname.Add',
-        'AddressBook.view.gpsname.Settings'
     ],
 
     config: {

@@ -1,4 +1,4 @@
-Ext.define('AddressBook.model.Contact', {
+Ext.define('GPSName.model.Location', {
     extend: 'Ext.data.Model',
 
     config: {

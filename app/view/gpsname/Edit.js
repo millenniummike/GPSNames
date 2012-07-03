@@ -1,4 +1,4 @@
-Ext.define('AddressBook.view.gpsname.Edit', {
+Ext.define('GPSName.view.gpsname.Edit', {
     extend: 'Ext.Container',
     xtype: 'contact-edit',
 
@@ -122,7 +122,7 @@ Ext.define('AddressBook.view.gpsname.Edit', {
                             ui: 'confirm',
                             handler: function() {
                                 var formValues = this.up('formpanel').getValues();
-                                var model = Ext.ModelMgr.create(formValues,'AddressBook.model.Contact');      
+                                var model = Ext.ModelMgr.create(formValues,'GPSName.model.Contact');      
                                 var errors = model.validate(),message = "";
                                 var errorMessage;
                                        

@@ -1,4 +1,4 @@
-Ext.define('AddressBook.view.Contacts', {
+Ext.define('GPSName.view.Locations', {
     extend: 'Ext.List',
     
     xtype: 'contacts',

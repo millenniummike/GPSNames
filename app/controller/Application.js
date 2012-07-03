@@ -1,4 +1,4 @@
-Ext.define('AddressBook.controller.Application', {
+Ext.define('GPSName.controller.Application', {
     extend: 'Ext.app.Controller',
 
     config: {
@@ -106,7 +106,7 @@ params:{filter: field.getValue()}
         var editButton = this.getEditButton();
 
         if (!this.showContact) {
-            this.showContact = Ext.create('AddressBook.view.gpsname.Show');
+            this.showContact = Ext.create('GPSName.view.gpsname.Show');
         }
 
         // Bind the record onto the show contact view
@@ -118,7 +118,7 @@ params:{filter: field.getValue()}
 
     onContactEdit: function() {
         if (!this.editContact) {
-            this.editContact = Ext.create('AddressBook.view.gpsname.Edit');
+            this.editContact = Ext.create('GPSName.view.gpsname.Edit');
         }
 
         // Bind the record onto the edit contact view
@@ -151,7 +151,7 @@ params:{filter: field.getValue()}
     onAction: function() {
         
       if (!this.showAction) {
-            this.showAction = Ext.create('AddressBook.view.gpsname.Add');
+            this.showAction = Ext.create('GPSName.view.gpsname.Add');
         }
         this.getMain().push(this.showAction);
         
@@ -171,7 +171,7 @@ params:{filter: field.getValue()}
  onSettings: function() {
 
         if (!this.showSettings) {
-            this.showSettings = Ext.create('AddressBook.view.gpsname.Settings');
+            this.showSettings = Ext.create('GPSName.view.gpsname.Settings');
         }
         
         this.showSettings.setRecord(this.getShowSettings().getRecord());

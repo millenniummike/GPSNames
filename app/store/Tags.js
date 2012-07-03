@@ -1,15 +1,15 @@
-Ext.define('AddressBook.store.Tags', {
+Ext.define('GPSName.store.Tags', {
     extend: 'Ext.data.Store',
 
 
     config: {
         id: 'tagStore',
-        model: 'AddressBook.model.Tags',
+        model: 'GPSName.model.Tags',
         autoLoad: false,
         sorters: 'name',
         proxy: {
             type: 'ajax',
-            url: 'http://www.gpsname.com/index.php/feed/tags'
+            url: 'http://www.onebiglink.com/gpsname.com/index.php/feed/tags'
 			}
     }
 });

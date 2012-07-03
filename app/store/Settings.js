@@ -1,8 +1,8 @@
-Ext.define('AddressBook.store.Settings', {
+Ext.define('GPSName.store.Settings', {
     extend: 'Ext.data.Store',
 
     config: {
-        model: 'AddressBook.model.Settings',
+        model: 'GPSName.model.Settings',
         autoLoad: true
     }
 });

@@ -1,4 +1,4 @@
-Ext.define('AddressBook.view.gpsname.Settings', {
+Ext.define('GPSName.view.gpsname.Settings', {
     extend: 'Ext.Container',
     xtype: 'settings-show',
 

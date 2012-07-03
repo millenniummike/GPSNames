@@ -18,14 +18,14 @@ Ext.application({
         144: 'resources/icons/icon@114.png'
     },
 
-    models: ['Contact','Tags','Settings'],
-    stores: ['Contacts','Tags','Settings'],
+    models: ['Locations','Tags','Settings'],
+    stores: ['Locations','Tags','Settings'],
     views: ['Main'],
     controllers: ['Application'],
 
     launch: function() {
         Ext.Viewport.add({
-            xclass: 'AddressBook.view.Main'
+            xclass: 'GPSname.view.Main'
         });
 
 
