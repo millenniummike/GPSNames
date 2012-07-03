@@ -5,7 +5,7 @@ Ext.Loader.setPath({
 
 
 Ext.application({
-    name: 'GolfTracker',
+    name: 'AddressBook',
 
     phoneStartupScreen: 'resources/loading/Homescreen.jpg',
     tabletStartupScreen: 'resources/loading/Homescreen~ipad.jpg',
@@ -18,14 +18,14 @@ Ext.application({
         144: 'resources/icons/icon@114.png'
     },
 
-    models: ['Settings','Courses','Holes','Shots'],
-    stores: ['Settings','Courses','Holes','Shots'],
-    views: ['Main','Show','Edit','Settings','Add','PlayerScore','Courses','CourseAdd'],
+    models: ['Contact','Tags','Settings'],
+    stores: ['Contacts','Tags','Settings'],
+    views: ['Main'],
     controllers: ['Application'],
 
     launch: function() {
         Ext.Viewport.add({
-            xclass: 'GolfTracker.view.Main'
+            xclass: 'AddressBook.view.Main'
         });
 
 

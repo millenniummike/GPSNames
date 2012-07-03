@@ -1,4 +1,4 @@
-Ext.define('GolfTracker.view.Settings', {
+Ext.define('AddressBook.view.gpsname.Settings', {
     extend: 'Ext.Container',
     xtype: 'settings-show',
 

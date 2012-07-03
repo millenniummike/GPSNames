@@ -1,12 +1,8 @@
-Ext.define('GolfTracker.store.Settings', {
+Ext.define('AddressBook.store.Settings', {
     extend: 'Ext.data.Store',
 
     config: {
-       proxy: {
-            type: 'localstorage',
-            id  : 'settings'
-        },
-        model: 'GolfTracker.model.Settings',
+        model: 'AddressBook.model.Settings',
         autoLoad: true
     }
 });

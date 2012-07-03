@@ -1,11 +1,12 @@
-Ext.define('GolfTracker.controller.Application', {
+Ext.define('AddressBook.controller.Application', {
     extend: 'Ext.app.Controller',
 
     config: {
         refs: {
             main: 'mainview',
             editButton: '#editButton',
-            holes: 'holes',
+            contacts: 'contacts',
+            tags: 'tags',
             showContact: 'contact-show',
             editContact: 'contact-edit',
             addContact: 'contact-add',
@@ -13,10 +14,10 @@ Ext.define('GolfTracker.controller.Application', {
             saveButton: '#saveButton',
             addButton: '#addButton',
             actionButton: '#actionButton',
-            trashButton: '#trashButton',
             homeButton: '#homeButton',
             settingsButton: '#settingsButton',
-            searchbox: '#searchbox'
+            searchbox: '#searchbox',
+            tagfilter: '#tagfilter'
         },
 
         control: {
@@ -34,7 +35,7 @@ Ext.define('GolfTracker.controller.Application', {
                 tap: 'onContactSave'
             },
             addButton: {
-                tap: 'onCourseAddSave'
+                tap: 'onContactAddSave'
             },
              addContact: {
                 change: 'onAddContactChange'
@@ -45,9 +46,6 @@ Ext.define('GolfTracker.controller.Application', {
              actionButton: {
                 tap: 'onAction'
             },
-            trashButton: {
-                tap: 'onTrash'
-            },
              homeButton: {
                 tap: 'onHome'
             },
@@ -57,6 +55,10 @@ Ext.define('GolfTracker.controller.Application', {
             searchbox: {
                 keyup: 'onSearchKeyup',
                 clearicontap: 'onSearchKeyup'
+            },
+             tagfilter: {
+                keyup: 'ontagfilterKeyup',
+                clearicontap: 'ontagfilterKeyup'
             }
    
         }
@@ -64,8 +66,16 @@ Ext.define('GolfTracker.controller.Application', {
 
 onSearchKeyup: function(field, e) {
 Ext.getStore('Contacts').load({
+params:{gpsname: field.getValue()}
+});
+
+
+},
+ontagfilterKeyup: function(field, e) {
+Ext.getStore('Tags').load({
 params:{filter: field.getValue()}
 });
+              
 
 
 },
@@ -83,13 +93,7 @@ params:{filter: field.getValue()}
     },
 
     onMainPop: function(view, item) {
-        //alert (item.xtype);
-        if (item.xtype == "settings-show") {
-        this.showAddButton();
-        }
-        if (item.xtype == "contact-add") {
         this.hideAddButton();
-        }
         
         if (item.xtype == "contact-edit") {
             this.showEditButton();
@@ -102,7 +106,7 @@ params:{filter: field.getValue()}
         var editButton = this.getEditButton();
 
         if (!this.showContact) {
-            this.showContact = Ext.create('GolfTracker.view.Show');
+            this.showContact = Ext.create('AddressBook.view.gpsname.Show');
         }
 
         // Bind the record onto the show contact view
@@ -114,7 +118,7 @@ params:{filter: field.getValue()}
 
     onContactEdit: function() {
         if (!this.editContact) {
-            this.editContact = Ext.create('GolfTracker.view.Edit');
+            this.editContact = Ext.create('AddressBook.view.gpsname.Edit');
         }
 
         // Bind the record onto the edit contact view
@@ -130,56 +134,11 @@ params:{filter: field.getValue()}
         this.showSaveButton();
     },
 
-    onCourseAddSave: function() {
+    onContactAddSave: function() {
+        
+       var record = this.getAddContact().saveRecord();
+       this.getAddContact().updateRecord(record);
 
-         if (!this.showSettings) {
-            this.showSettings = Ext.create('GolfTracker.view.CourseAdd');
-        }
-        this.getMain().push(this.showSettings);
-        this.hideAddButton();
-        
-      // this.getAddContact().saveRecord();
-    },
-    
-    onContactAddChangeHole: function() {
-                
-        if (!this.showSettings) {
-            this.showSettings = Ext.create('GolfTracker.view.PlayerScore');
-        }
-        this.getMain().push(this.showSettings);
-        this.hideAddButton();
-        
-        // create a new course
-        var courses = Ext.create('GolfTracker.model.Courses', {id:1,name:'Miami Goofy Course'});
-        courses.save();
-        
-        // add a new hole using above course id
-        var holes=courses.holes();
-        holes.add({
-            hole: 'Hole 5',
-            par:'5',
-            distance:'500 Yards'
-        });
-        holes.sync();
-        // todo get last hole id
-        
-
-        // add a new shot using hole id
-        var hole_id=1;
-        var holes2 = Ext.ModelManager.getModel('GolfTracker.model.Holes');
-        holes2.load(hole_id, {
-            success: function(hole) {
-                var shots=hole.shots();
-                shots.add({
-                lat: '5',
-                lon: '3'
-                });
-             shots.sync();
-            }
-        });
-        
-
-        
     },
 
     onContactSave: function() {
@@ -192,25 +151,11 @@ params:{filter: field.getValue()}
     onAction: function() {
         
       if (!this.showAction) {
-            this.showAction = Ext.create('GolfTracker.view.Add');
+            this.showAction = Ext.create('AddressBook.view.gpsname.Add');
         }
-        this.showAddButton();
         this.getMain().push(this.showAction);
         
         this.showAction.loadGPS();
-
-   
-    },
-    
-        onTrash: function() {
-        
-        var contactsStore = Ext.getStore('Contacts');
-        contactsStore.clearData();
-        contactsStore.sync();
-        var holesStore = Ext.getStore('Holes');
-        holesStore.clearData();
-        holesStore.sync();
-
    
     },
         
@@ -226,7 +171,7 @@ params:{filter: field.getValue()}
  onSettings: function() {
 
         if (!this.showSettings) {
-            this.showSettings = Ext.create('GolfTracker.view.Settings');
+            this.showSettings = Ext.create('AddressBook.view.gpsname.Settings');
         }
         
         this.showSettings.setRecord(this.getShowSettings().getRecord());

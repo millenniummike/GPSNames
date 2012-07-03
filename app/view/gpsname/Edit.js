@@ -1,4 +1,4 @@
-Ext.define('GolfTracker.view.Edit', {
+Ext.define('AddressBook.view.gpsname.Edit', {
     extend: 'Ext.Container',
     xtype: 'contact-edit',
 
@@ -10,6 +10,7 @@ Ext.define('GolfTracker.view.Edit', {
             {
                 
                 xtype: 'formpanel',
+                url: 'http://www.gpsname.com/index.php/sencha/update',
 
                 items: [
                     {
@@ -17,7 +18,7 @@ Ext.define('GolfTracker.view.Edit', {
                         defaults: {
                             labelWidth: '100%'
                         },
-                        title: 'Details',
+                        title: 'Information',
                         items: [
                             {
                                 xtype: 'textfield',
@@ -25,56 +26,17 @@ Ext.define('GolfTracker.view.Edit', {
                                 name: 'id',
                                 hidden: true
                             },
-                                      {
+                            {
                                 xtype: 'textfield',
-                                label: 'Course Name',
-                                name: 'coursename',
-                                id: 'coursename',
-                                value: ''
+                                label: 'Title',
+                                name: 'title'
                             },
-                              {
-                                  
-                                xtype: 'spinnerfield',
-                                label: 'Hole',
-                                name: 'hole',
-                                id: 'hole',
-                                minValue: 1,
-                                maxValue: 18,
-                                increment: 1,
-                                cycle: true
-                            },
-                                 {
-                                xtype: 'spinnerfield',
-                                label: 'Par',
-                                name: 'par',
-                                id: 'par',
-                                minValue: 3,
-                                maxValue: 5,
-                                increment: 1,
-                                cycle: true
-                            },
-                            
-        {          xtype: 'selectfield',
-                                label: 'Club Used',
-                                name: 'club',
-                                id: 'club',
-                                options: [
-                                    {text: 'Driver',  value: 'Driver'},
-                                    {text: '5 Wood', value: '5 Wood'},
-                                    {text: '3 Wood', value: '3 Wood'},
-                                    {text: 'Hybrid', value: 'Hybrid'},
-                                    {text: '9 Iron', value: '9 Iron'},
-                                    {text: '8 Iron', value: '8 Iron'},
-                                    {text: '7 Iron', value: '7 Iron'},
-                                    {text: '6 Iron', value: '6 Iron'},
-                                    {text: '5 Iron', value: '5 Iron'},
-                                    {text: '4 Iron', value: '4 Iron'},
-                                    {text: 'Pitching Wedge', value: 'Pitching Wedge'},
-                                    {text: 'Putter', value: 'Putter'},
-                                    
-                                    
-                                ]
-                    },
+                            {
+                                xtype: 'textareafield',
+                                label: 'Description',
+                                name: 'description',
+                                maxRows: 2
+                            }
                         ]
                     },
                     {
@@ -97,12 +59,59 @@ Ext.define('GolfTracker.view.Edit', {
                         ]
                     },
                      {
+                        xtype: 'fieldset',
+                        defaults: {
+                            labelWidth: '100%'
+                        },
+                        title: 'Tag',
+                        items: [
+                            {
+                                xtype: 'textfield',
+                                label: 'Tag Filter',
+                                name: 'tagfilter',
+                                id: 'tagfilter'
+                            },
+                            { xtype: 'tags',
+                            id:'tags_edit',
+                            name:'tags_edit',
+                            height:50},
+                     {
+                                xtype: 'textfield',
+                                label: 'Tagged',
+                                name: 'tagged',
+                                id: 'tagged'
+                            },
+                            
+                            {          xtype: 'selectfield',
+                                label: 'Category',
+                                name: 'category',
+                                options: [
+                                    {text: 'Home',  value: 'Home'},
+                                    {text: 'Work', value: 'Work'},
+                                    {text: 'Public Place', value: 'Public Place'},
+                                    {text: 'General', value: 'General'},
+
+                                ]
+                    },
+                            
+                                  {          xtype: 'selectfield',
+                                label: 'Who can See?',
+                                name: 'permissions',
+                                options: [
+                                    {text: 'Everyone',  value: '1'},
+                                    {text: 'Other GPSName users', value: '2'},
+                                    {text: 'Connected GPSName users', value: '3'},
+                                    {text: 'Facebook Friends', value: '4'},
+                                    {text: 'Facebook Friends & Connected GPSName Users', value: '5'},
+                                    {text: 'No one', value: '6'},
+                                ]
+                    },
+
+                        ]
+                    },
+                     {
                 xtype: 'map',
                 id: 'map_edit',
-                 mapOptions: {
-                    zoom: 18,
-                    mapTypeId: google.maps.MapTypeId.SATELLITE
-                },
                 height: 200,
                 useCurrentLocation: true
                 
@@ -113,7 +122,7 @@ Ext.define('GolfTracker.view.Edit', {
                             ui: 'confirm',
                             handler: function() {
                                 var formValues = this.up('formpanel').getValues();
-                                var model = Ext.ModelMgr.create(formValues,'GolfTracker.model.Contact');      
+                                var model = Ext.ModelMgr.create(formValues,'AddressBook.model.Contact');      
                                 var errors = model.validate(),message = "";
                                 var errorMessage;
                                        

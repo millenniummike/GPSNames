@@ -1,9 +1,14 @@
-Ext.define('GolfTracker.view.Main', {
+Ext.define('AddressBook.view.Main', {
     extend: 'Ext.navigation.View',
     xtype: 'mainview',
 
     requires: [
-         'GolfTracker.view.Courses',
+        'AddressBook.view.Contacts',
+        'AddressBook.view.Tags',
+        'AddressBook.view.gpsname.Show',
+        'AddressBook.view.gpsname.Edit',
+        'AddressBook.view.gpsname.Add',
+        'AddressBook.view.gpsname.Settings'
     ],
 
     config: {
@@ -50,6 +55,7 @@ Ext.define('GolfTracker.view.Main', {
                     text: 'Add',
                     ui: 'sencha',
                     align: 'right',
+                    hidden: true,
                     hideAnimation: Ext.os.is.Android ? false : {
                         type: 'fadeOut',
                         duration: 200
@@ -76,7 +82,7 @@ Ext.define('GolfTracker.view.Main', {
                     
                       
 
-			{ xtype: 'courses' },
+			{ xtype: 'contacts' },
 			{ xtype: 'toolbar',
                     docked: 'bottom',
                     html: null,
@@ -101,11 +107,10 @@ Ext.define('GolfTracker.view.Main', {
 
                     // Add a bunch of buttons into the toolbar
                     items: [
-                        { height:'48px',iconAlign:'top',text:'Courses',iconMask: true, iconCls: 'home', id:'homeButton' },
-                        { height:'48px',iconAlign:'top',text:'Add Shot',iconMask: true, iconCls: 'add', id:'actionButton' },
-                        { height:'48px',iconAlign:'top',text:'Score Card',iconMask: true, iconCls: 'list', id:'scoreButton' },
-                        { height:'48px',iconAlign:'top',text:'Clear',iconMask: true, iconCls: 'trash', id:'trashButton' }
-           
+                        { height:'44px',iconAlign:'top',text:'home',iconMask: true, iconCls: 'home', id:'homeButton' },
+                        { height:'44px',iconAlign:'top',text:'add',iconMask: true, iconCls: 'add', id:'actionButton' },
+                        { height:'44px',iconAlign:'top',text:'friends',iconMask: true, iconCls: 'favorites', id:'anotherButton' },
+                        { height:'44px',iconAlign:'top',text:'account',iconMask: true, iconCls: 'settings', id:'settingsButton' }
                     ]
                 }			
         ]
