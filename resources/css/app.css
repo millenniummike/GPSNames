@@ -1,0 +1,16 @@
+.x-title .x-innerhtml {
+white-space: nowrap;
+overflow: hidden;
+text-overflow: clip;
+padding: 0 .3em;
+}
+
+.x-list .x-list-item{
+    background:white;
+    border-bottom:1px solid #ccc;
+}
+
+.x-list-header{
+    background:#ddd;
+    padding:5px;
+}
