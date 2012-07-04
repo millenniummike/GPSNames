@@ -10,8 +10,7 @@ Ext.define('GPSName.view.Add', {
             {
                 
                 xtype: 'formpanel',
-                url: 'http://www.gpsname.com/index.php/sencha/add',
-
+               
                 items: [
                     {
                         xtype: 'fieldset',
@@ -23,18 +22,12 @@ Ext.define('GPSName.view.Add', {
                             {
                                 xtype: 'textfield',
                                 label: 'Title',
-                                name: 'title',
-                                defaults: {
-                                    required: true,
-                                    labelAlign: 'left',
-                                    labelWidth: '40%'
-                                }
+                                name: 'titleinput'
                             },
                             {
-                                xtype: 'textareafield',
+                                xtype: 'textfield',
                                 label: 'Description',
-                                name: 'description',
-                                maxRows: 2
+                                name: 'description'
                             }
                         ]
                     },

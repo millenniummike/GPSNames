@@ -10,3 +10,7 @@ margin: 0 0 0.2em;
     background:white;
     border-bottom:1px solid #ccc;
 }
+
+.x-field-search .x-field-input {
+background:grey;
+}

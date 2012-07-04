@@ -13,9 +13,9 @@ Ext.define('GPSName.view.Show', {
 			{
 				xtype: 'component',
 				id: 'content',
-                                height:100,
+                           
                 tpl: [
-                    '<div style="font-size:150%;padding: 5px;">{title}</div><div style="font-size:100%;padding: 5px;">{description}</div'
+                    '<div style="font-size:100%;padding: 5px;">{description}</div>'
                 ].join('')
 				
 			
@@ -34,6 +34,7 @@ Ext.define('GPSName.view.Show', {
                     {
                         xtype: 'emailfield',
                         label: 'Email',
+                        labelWidth: '100%',
                         placeHolder: 'email@example.com'
                     },
 					{

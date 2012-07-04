@@ -103,10 +103,12 @@ params:{filter: field.getValue()}
         
         this.hideAddButton();
         
+        
         if (item.xtype == "location-edit"||item.xtype == "contact-edit") {
             this.showEditButton();
         } else {
             this.hideEditButton();
+            Ext.getCmp('toptoolbar').setTitle('');
         }
     },
 
@@ -116,12 +118,13 @@ params:{filter: field.getValue()}
         if (!this.showContact) {
             this.showContact = Ext.create('GPSName.view.Show');
         }
-
         // Bind the record onto the show contact view
         this.showContact.setRecord(record);
 
         // Push the show contact view into the navigation view
         this.getMain().push(this.showContact);
+        
+        Ext.getCmp('toptoolbar').setTitle(''+record.data.title);
     },
 
     onContactEdit: function() {

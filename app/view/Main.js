@@ -66,6 +66,7 @@ Ext.define('GPSName.view.Main', {
         items: [
                             {xtype: 'toolbar',
                         docked: 'top',
+                        id:'toptoolbar',
                         
                         items: [
                             { 

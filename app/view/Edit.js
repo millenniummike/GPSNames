@@ -32,10 +32,9 @@ Ext.define('GPSName.view.Edit', {
                                 name: 'title'
                             },
                             {
-                                xtype: 'textareafield',
+                                xtype: 'textfield',
                                 label: 'Description',
                                 name: 'description',
-                                maxRows: 2
                             }
                         ]
                     },
