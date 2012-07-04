@@ -113,6 +113,19 @@ Ext.define('GPSName.view.Edit', {
                 xtype: 'map',
                 id: 'map_edit',
                 height: 200,
+                mapOptions: {
+                    zoom: 18,
+                    mapTypeId: google.maps.MapTypeId.SATELLITE,
+                    navigationControl: true,
+                    zoomControl: true,
+                    zoomControlOptions: {
+                        style: google.maps.ZoomControlStyle.SMALL
+                    },
+                    navigationControlOptions: 
+                    {
+                        style: google.maps.NavigationControlStyle.DEFAULT
+                    }
+                },
                 useCurrentLocation: true
                 
             },

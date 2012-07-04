@@ -5,3 +5,8 @@ border-bottom:1px solid #ccc;
 .x-form-fieldset {
 margin: 0 0 0.2em;
 }
+
+.x-list .x-list-item{
+    background:white;
+    border-bottom:1px solid #ccc;
+}

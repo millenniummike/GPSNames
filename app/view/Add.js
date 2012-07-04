@@ -119,7 +119,20 @@ Ext.define('GPSName.view.Add', {
                 xtype: 'map',
                 id:'map_add',
                 height: 200,
-                useCurrentLocation: true
+                useCurrentLocation: true,
+                             mapOptions: {
+                    zoom: 18,
+                    mapTypeId: google.maps.MapTypeId.SATELLITE,
+                    navigationControl: true,
+                    zoomControl: true,
+                    zoomControlOptions: {
+                        style: google.maps.ZoomControlStyle.SMALL
+                    },
+                    navigationControlOptions: 
+                    {
+                        style: google.maps.NavigationControlStyle.DEFAULT
+                    }
+                }
                 
             }
                 ]
@@ -156,6 +169,7 @@ Ext.define('GPSName.view.Add', {
             Ext.getCmp('lat').setValue('' + geo.getLatitude());
             Ext.getCmp('lon').setValue('' + geo.getLongitude());
             
+            /*
             var myLatLng = new google.maps.LatLng(''+geo.getLatitude(),''+geo.getLongitude());
             var map = Ext.getCmp('map_add').getMap();
             var marker = new google.maps.Marker({
@@ -164,6 +178,7 @@ Ext.define('GPSName.view.Add', {
           });
 
             marker.setMap(map);
+            */
             
         },
         locationerror: function(geo, bTimeout, bPermissionDenied, bLocationUnavailable, message) {
