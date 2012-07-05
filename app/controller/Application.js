@@ -230,6 +230,8 @@ Ext.Ajax.request({
     else 
     {
         Ext.Msg.alert('Login OK');
+        var locationsStore = Ext.getStore('Locations');
+        locationsStore.load();
     }
     }
     });
