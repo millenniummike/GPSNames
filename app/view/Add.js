@@ -155,12 +155,18 @@ Ext.define('GPSName.view.Add', {
     
     loadGPS: function () {
         
+         var socket = io.connect('http://195.234.11.44:8081');
+
+
         var geo = Ext.create('Ext.util.Geolocation', {
-    autoUpdate: false,
+    autoUpdate: true,
     listeners: {
         locationupdate: function(geo) {
             Ext.getCmp('lat').setValue('' + geo.getLatitude());
             Ext.getCmp('lon').setValue('' + geo.getLongitude());
+            
+            socket.emit('updatecharacter',{user:'tester',lat:geo.getLatitude(),lon:geo.getLongitude()});
+
             
             /*
             var myLatLng = new google.maps.LatLng(''+geo.getLatitude(),''+geo.getLongitude());
