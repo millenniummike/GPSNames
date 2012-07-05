@@ -42,11 +42,30 @@ Ext.define('GPSName.view.Settings', {
                                 settingsStore.removeAll();
                                 
                                 var form = this.up('formpanel').getValues();
+                                
+                                gpsname_user=form.username;
+                                gpsname_password=form.password;
 
                                 settingsStore.add(form);
                                 settingsStore.sync(); 
+                                
 
-                                var item = settingsStore.getAt(0);
+                                alert ("Settings Updated");
+ 
+                            }
+                        },
+                        {
+                            xtype: 'button',
+                            text: 'Login Now',
+                            ui: 'confirm',
+                            handler: function() {
+                                
+                                var form = this.up('formpanel').getValues();
+                                
+                                gpsname_user=form.username;
+                                gpsname_password=form.password;
+                                var application= GPSName.app.getController('Application');
+                                application.Login(gpsname_user,gpsname_password);
  
                             }
                         }

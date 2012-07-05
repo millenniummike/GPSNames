@@ -6,10 +6,7 @@ Ext.define('GPSName.store.Locations', {
         sorters: 'title',
         proxy: {
             type: 'ajax',
-            url: 'http://www.onebiglink.com/gpsname.com/index.php/feed/json',
-            extraParams: {
-                gpsname: 'mike'
-            }
+            url: 'http://www.onebiglink.com/gpsname.com/index.php/feed/json_mygpsnames'
 	}
     }
 });

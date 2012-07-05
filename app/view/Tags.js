@@ -17,6 +17,7 @@ Ext.define('GPSName.view.Tags', {
                 var existingvalue=Ext.getCmp('tagged').getValue();
                 
                 Ext.getCmp('tagged').setValue(existingvalue+','+value);
+                Ext.getStore('Tags').removeAll();
             },
             
             refresh: function () {

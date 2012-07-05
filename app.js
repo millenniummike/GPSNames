@@ -1,5 +1,6 @@
 // global variables
-var gpsname_user='nick1';   
+var gpsname_user='';
+var gpsname_password=''; 
 
 Ext.Loader.setConfig({enabled: true});
 Ext.Loader.setPath({
@@ -27,15 +28,22 @@ Ext.application({
     controllers: ['Application'],
         launch: function() {
         
-        
+         
         var settingsStore = Ext.getStore('Settings');
         var item = settingsStore.getAt(0);
-        
+
+        if (item){
+            gpsname_user=item.data.username;
+            gpsname_password=item.data.password; 
+            var application= GPSName.app.getController('Application');
+            application.Login(gpsname_user,gpsname_password);
+        }
+
         var store = Ext.getStore('Locations');
-        //store.getProxy().setExtraParam('gpsname', item.data.username);  
-        store.getProxy().setExtraParam('gpsname', 'mike'); 
+        store.getProxy().setExtraParam('gpsname', gpsname_user); 
         store.load();
         
+       
         Ext.Viewport.add({
             xclass: 'GPSName.view.Main'
         });

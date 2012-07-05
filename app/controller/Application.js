@@ -74,6 +74,13 @@ onSearchKeyup: function(field, e) {
         // clear all existing filters
         store.clearFilter();
         store.filter('title', field.getValue()); 
+        
+        var settingsStore = Ext.getStore('Settings');
+        var item = settingsStore.getAt(0);
+        if (item.data.username){
+            gpsname_user=item.data.username;
+        }
+        
         store.getProxy().setExtraParam('gpsname', gpsname_user);   
         store.load();
 
@@ -190,8 +197,9 @@ params:{filter: field.getValue()}
         
         var settingsStore = Ext.getStore('Settings');
         var item = settingsStore.getAt(0);
-        
-        this.showSettings.loadName(item.get('username'),item.get('password'));
+        if (item){
+            this.showSettings.loadName(item.get('username'),item.get('password'));
+        }
       
         
     },
@@ -200,6 +208,31 @@ params:{filter: field.getValue()}
             this.showFriends = Ext.create('GPSName.view.Friends');
         } 
         this.getMain().push(this.showFriends);     
+        
+    },
+    Login: function(email,password) {
+    
+Ext.Ajax.request({
+    url: 'http://www.onebiglink.com/gpsname.com/index.php/login/api_login',
+    method: 'post',
+    params: {email: email, password : password},
+    failure : function(response){
+        data = Ext.decode(response.responseText);
+        Ext.Msg.alert('Login Error', data.message, Ext.emptyFn);
+    },
+    success: function(response, opts) {
+    data = Ext.decode(response.responseText);
+    
+    if (data.result !='OK')
+    {
+        Ext.Msg.alert('Login Error', data.message, Ext.emptyFn);
+    } 
+    else 
+    {
+        Ext.Msg.alert('Login OK');
+    }
+    }
+    });
         
     },
     showEditButton: function() {
