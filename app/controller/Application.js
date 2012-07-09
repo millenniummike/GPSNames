@@ -140,7 +140,21 @@ params:{filter: field.getValue()}
         }
 
         // Bind the record onto the edit contact view
-      this.editContact.setRecord(this.getShowLocation().getRecord());
+        var record=this.getShowLocation().getRecord();
+        
+        this.editContact.setRecord(record);
+      
+        var map = Ext.getCmp('map_edit').getMap();
+        var myLatLng = new google.maps.LatLng(record.data.lat,record.data.lon);
+        map.setCenter(myLatLng, 18);
+        var image =  record.data.image;
+          var marker = new google.maps.Marker({
+              position: myLatLng,
+              icon: image,
+              map: map
+          });
+
+            marker.setMap(map);
 
         this.getMain().push(this.editContact);
     },

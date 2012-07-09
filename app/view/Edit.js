@@ -114,7 +114,6 @@ Ext.define('GPSName.view.Edit', {
                 height: 200,
                 mapOptions: {
                     zoom: 18,
-                    mapTypeId: google.maps.MapTypeId.SATELLITE,
                     navigationControl: true,
                     zoomControl: true,
                     zoomControlOptions: {
@@ -125,7 +124,7 @@ Ext.define('GPSName.view.Edit', {
                         style: google.maps.NavigationControlStyle.DEFAULT
                     }
                 },
-                useCurrentLocation: true
+                useCurrentLocation: false
                 
             },
                                     {
@@ -144,8 +143,9 @@ Ext.define('GPSName.view.Edit', {
                                     Ext.Msg.alert('Updated!');
                                 } else {                                   
                                      errors.each(function (err) {
-    
+                                       if (err.getMessage()!='undefined'){
                                         errorMessage += err.getMessage() + '<br/>';
+                                       }
                                     }); // each()
                                     Ext.Msg.alert('Form is invalid!', errorMessage);
                                 }                                                             

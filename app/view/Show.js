@@ -22,7 +22,15 @@ Ext.define('GPSName.view.Show', {
 			},
             {
                 xtype: 'map',
-                height: 200
+                height: 200,
+                 mapOptions: {
+                    zoom: 18,
+                    navigationControl: true,
+                    zoomControl: true,
+                    zoomControlOptions: {
+                        style: google.maps.ZoomControlStyle.SMALL
+                    }
+                 }
             },
 
             {
