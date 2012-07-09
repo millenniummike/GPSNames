@@ -10,6 +10,7 @@ Ext.define('GPSName.view.Add', {
             {
                 
                 xtype: 'formpanel',
+                id:'addform',
                
                 items: [
                     {
@@ -22,7 +23,7 @@ Ext.define('GPSName.view.Add', {
                             {
                                 xtype: 'textfield',
                                 label: 'Title',
-                                name: 'titleinput'
+                                name: 'title'
                             },
                             {
                                 xtype: 'textfield',

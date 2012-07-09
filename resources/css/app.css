@@ -14,3 +14,7 @@ margin: 0 0 0.2em;
 .x-field-search .x-field-input {
 background:grey;
 }
+
+.error {
+color:red;
+}

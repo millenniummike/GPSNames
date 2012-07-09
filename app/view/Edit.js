@@ -29,12 +29,14 @@ Ext.define('GPSName.view.Edit', {
                             {
                                 xtype: 'textfield',
                                 label: 'Title',
-                                name: 'title'
+                                name: 'title',
+                                id:'title'
                             },
                             {
                                 xtype: 'textfield',
                                 label: 'Description',
                                 name: 'description',
+                                id:'description'
                             }
                         ]
                     },
@@ -135,17 +137,31 @@ Ext.define('GPSName.view.Edit', {
                                 var formValues = this.up('formpanel').getValues();
                                 var model = Ext.ModelMgr.create(formValues,'GPSName.model.Locations');      
                                 var errors = model.validate(),message = "";
-                                var errorMessage;
+                                var errorMessage='';
                                        
                                  if(errors.isValid()){  
                                     this.up('formpanel').submit();
-                                    errorMessage='';
                                     Ext.Msg.alert('Updated!');
-                                } else {                                   
+                                } else { 
                                      errors.each(function (err) {
-                                       if (err.getMessage()!='undefined'){
+                                      
                                         errorMessage += err.getMessage() + '<br/>';
-                                       }
+                                        
+
+                                        if (err.getMessage()=='Enter Tagged'){
+                                            Ext.getCmp('tagged').setLabelCls('error');
+                                            Ext.getCmp('tagfilter').setLabelCls('error');
+                                            Ext.getCmp('tagged').focus()
+                                        }
+                                        if (err.getMessage()=='Enter Title'){
+                                            Ext.getCmp('title').setLabelCls('error');
+                                            Ext.getCmp('title').focus()
+                                        }
+                                        if (err.getMessage()=='Enter Description'){
+                                            Ext.getCmp('description').setLabelCls('error');
+                                            Ext.getCmp('description').focus()
+                                        }
+
                                     }); // each()
                                     Ext.Msg.alert('Form is invalid!', errorMessage);
                                 }                                                             

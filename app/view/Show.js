@@ -50,7 +50,7 @@ Ext.define('GPSName.view.Show', {
 			ui: 'confirm',
                         text: 'Send',
                         handler: function() {
-                            alert ("Sending email!");
+                            Ext.Msg.alert('Sending Email!');
                         }
                     }
                 ]

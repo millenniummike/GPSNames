@@ -167,10 +167,37 @@ params:{filter: field.getValue()}
     },
 
     onLocationAddSave: function() {
-        
-       var record = this.getAddContact().saveRecord();
-       this.getAddContact().updateRecord(record);
-       alert ('Adding new record');
+
+            var formValues = Ext.getCmp('addform').getValues();
+            var model = Ext.ModelMgr.create(formValues,'GPSName.model.Locations');      
+            var errors = model.validate(),message = "";
+            var errorMessage='';
+                if(errors.isValid()){  
+                Ext.Msg.alert('Updated!');
+            } else { 
+                    errors.each(function (err) {
+
+                    errorMessage += err.getMessage() + '<br/>';
+
+                    /*
+                    if (err.getMessage()=='Enter Tagged'){
+                        Ext.getCmp('tagged').setLabelCls('error');
+                        Ext.getCmp('tagfilter').setLabelCls('error');
+                        Ext.getCmp('tagged').focus()
+                    }
+                    if (err.getMessage()=='Enter Title'){
+                        Ext.getCmp('title').setLabelCls('error');
+                        Ext.getCmp('title').focus()
+                    }
+                    if (err.getMessage()=='Enter Description'){
+                        Ext.getCmp('description').setLabelCls('error');
+                        Ext.getCmp('description').focus()
+                    }
+                    */
+
+                }); // each()
+                Ext.Msg.alert('Form is invalid!', errorMessage);
+            }   
 
     },
 
