@@ -15,6 +15,13 @@ margin: 0 0 0.2em;
 background:grey;
 }
 
+.x-button-label{
+text-overflow: clip;
+}
+.x-title .x-innerhtml{
+text-overflow:clip;
+}
+
 .error {
 color:red;
 }

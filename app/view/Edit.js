@@ -3,13 +3,14 @@ Ext.define('GPSName.view.Edit', {
     xtype: 'contact-edit',
 
     config: {
-        title: 'Edit GPSName',
+        title: 'Edit',
         layout: 'fit',
 
         items: [
             {
                 
                 xtype: 'formpanel',
+                id: 'editform',
                 url: 'http://www.gpsname.com/index.php/sencha/update',
 
                 items: [

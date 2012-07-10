@@ -42,6 +42,7 @@ Ext.define('GPSName.view.Show', {
                     {
                         xtype: 'emailfield',
                         label: 'Email',
+                        id:'email_show',
                         labelWidth: '100%',
                         placeHolder: 'email@example.com'
                     },
@@ -50,7 +51,30 @@ Ext.define('GPSName.view.Show', {
 			ui: 'confirm',
                         text: 'Send',
                         handler: function() {
-                            Ext.Msg.alert('Sending Email!');
+                            var email=Ext.getCmp('email_show').getValue();
+                            Ext.Ajax.request({
+                                url: 'http://www.onebiglink.com/gpsname.com/index.php/feed/email_gpsname',
+                                method: 'post',
+                                params: {email: email,id:8},
+                                failure : function(response){
+                                    data = Ext.decode(response.responseText);
+                                    Ext.Msg.alert('Server Response', data.message, Ext.emptyFn);
+                                },
+                                success: function(response, opts) {
+                                data = Ext.decode(response.responseText);
+
+                                if (data.result !='OK')
+                                {
+                                    Ext.Msg.alert('Login Error', data.message, Ext.emptyFn);
+                                } 
+                                else 
+                                {
+                                    Ext.Msg.alert('Sendt Email!');
+                                    
+                                }
+                                }
+                                });
+                            
                         }
                     }
                 ]

@@ -172,8 +172,25 @@ params:{filter: field.getValue()}
             var model = Ext.ModelMgr.create(formValues,'GPSName.model.Locations');      
             var errors = model.validate(),message = "";
             var errorMessage='';
-                if(errors.isValid()){  
-                Ext.Msg.alert('Updated!');
+                if(errors.isValid()){ 
+                    
+                    Ext.Ajax.request({
+                        url: 'http://www.onebiglink.com/gpsname.com/index.php/feed/add_gpsname',
+                        method: 'post',
+                        params: {lat:formValues.lat,lon:formValues.lon,string:formValues.title,description:formValues.description,permissions:formValues.permissions,category:formValues.category,descriptiontags:formValues.tagged},
+                        failure : function(response){
+                        data = Ext.decode(response.responseText);
+
+                        },
+                        success: function(response, opts) {
+                        data = Ext.decode(response.responseText);
+                        if (data.errorMessage != null)
+                        {
+                        }
+                        }
+                    });
+
+                Ext.Msg.alert('Updated!','');
             } else { 
                     errors.each(function (err) {
 
@@ -202,8 +219,57 @@ params:{filter: field.getValue()}
     },
 
     onLocationUpdate: function() {
-        alert ("Updating record");
-        this.hideUpdateButton();
+        
+            var formValues = Ext.getCmp('editform').getValues();
+            var model = Ext.ModelMgr.create(formValues,'GPSName.model.Locations');      
+            var errors = model.validate(),message = "";
+            var errorMessage='';
+                if(errors.isValid()){ 
+                    
+                    Ext.Ajax.request({
+                        url: 'http://www.onebiglink.com/gpsname.com/index.php/feed/update_gpsname',
+                        method: 'post',
+                        params: {id:formValues.id,lat:formValues.lat,lon:formValues.lon,string:formValues.title,description:formValues.description,permissions:formValues.permissions,category:formValues.category,descriptiontags:formValues.tagged},
+                        failure : function(response){
+                        data = Ext.decode(response.responseText);
+
+                        },
+                        success: function(response, opts) {
+                        data = Ext.decode(response.responseText);
+                        if (data.errorMessage != null)
+                        {
+                        }
+                        }
+                    });
+
+                Ext.Msg.alert('Updated!','');
+                this.hideUpdateButton();
+            } else { 
+                    errors.each(function (err) {
+
+                    errorMessage += err.getMessage() + '<br/>';
+
+                    /*
+                    if (err.getMessage()=='Enter Tagged'){
+                        Ext.getCmp('tagged').setLabelCls('error');
+                        Ext.getCmp('tagfilter').setLabelCls('error');
+                        Ext.getCmp('tagged').focus()
+                    }
+                    if (err.getMessage()=='Enter Title'){
+                        Ext.getCmp('title').setLabelCls('error');
+                        Ext.getCmp('title').focus()
+                    }
+                    if (err.getMessage()=='Enter Description'){
+                        Ext.getCmp('description').setLabelCls('error');
+                        Ext.getCmp('description').focus()
+                    }
+                    */
+
+                }); // each()
+                Ext.Msg.alert('Form is invalid!', errorMessage);
+            }   
+                    
+        
     },
     
     onAction: function() {
