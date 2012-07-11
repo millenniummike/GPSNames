@@ -1,6 +1,16 @@
 // global variables
 var gpsname_user='';
 var gpsname_password=''; 
+ 
+ // Wait for PhoneGap to load
+
+document.addEventListener("deviceready", onDeviceReady, false);
+
+//onDeviceReady(); // non phone gap enviroment
+
+// PhoneGap is ready
+
+function onDeviceReady() {
 
 Ext.Loader.setConfig({enabled: true});
 Ext.Loader.setPath({
@@ -47,9 +57,6 @@ Ext.application({
         Ext.Viewport.add({
             xclass: 'GPSName.view.Main'
         });
-        
-  
     }
-
-
 });
+    }
