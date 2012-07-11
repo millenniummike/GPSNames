@@ -12,6 +12,8 @@ document.addEventListener("deviceready", onDeviceReady, false);
 
 function onDeviceReady() {
 
+alert ('PhoneGap Loaded!');
+
 Ext.Loader.setConfig({enabled: true});
 Ext.Loader.setPath({
     'Ext': 'resources'
