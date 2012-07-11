@@ -4,9 +4,9 @@ var gpsname_password='';
  
  // Wait for PhoneGap to load
 
-document.addEventListener("deviceready", onDeviceReady, false);
+//document.addEventListener("deviceready", onDeviceReady, false);
 
-//onDeviceReady(); // non phone gap enviroment
+onDeviceReady(); // non phone gap enviroment
 
 // PhoneGap is ready
 
