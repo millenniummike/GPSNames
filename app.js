@@ -33404,6 +33404,68 @@ Ext.define('Ext.field.Hidden', {
 /**
  * @aside guide forms
  *
+ * The Search field creates an HTML5 search input and is usually created inside a form. Because it creates an HTML
+ * search input type, the visual styling of this input is slightly different to normal text input contrls (the corners
+ * are rounded), though the virtual keyboard displayed by the operating system is the standard keyboard control.
+ *
+ * As with all other form fields in Sencha Touch, the search field gains a "clear" button that appears whenever there
+ * is text entered into the form, and which removes that text when tapped.
+ *
+ *     @example
+ *     Ext.create('Ext.form.Panel', {
+ *         fullscreen: true,
+ *         items: [
+ *             {
+ *                 xtype: 'fieldset',
+ *                 title: 'Search',
+ *                 items: [
+ *                     {
+ *                         xtype: 'searchfield',
+ *                         label: 'Query',
+ *                         name: 'query'
+ *                     }
+ *                 ]
+ *             }
+ *         ]
+ *     });
+ *
+ * Or on its own, outside of a form:
+ *
+ *     Ext.create('Ext.field.Search', {
+ *         label: 'Search:',
+ *         value: 'query'
+ *     });
+ *
+ * Because search field inherits from {@link Ext.field.Text textfield} it gains all of the functionality that text
+ * fields provide, including getting and setting the value at runtime, validations and various events that are fired
+ * as the user interacts with the component. Check out the {@link Ext.field.Text} docs to see the additional
+ * functionality available.
+ */
+Ext.define('Ext.field.Search', {
+    extend: 'Ext.field.Text',
+    xtype: 'searchfield',
+    alternateClassName: 'Ext.form.Search',
+
+    config: {
+        /**
+         * @cfg
+         * @inheritdoc
+         */
+        component: {
+	        type: 'search'
+	    },
+
+        /**
+         * @cfg
+         * @inheritdoc
+         */
+	    ui: 'search'
+    }
+});
+
+/**
+ * @aside guide forms
+ *
  * The checkbox field is an enhanced version of the native browser checkbox and is great for enabling your user to
  * choose one or more items from a set (for example choosing toppings for a pizza order). It works like any other
  * {@link Ext.field.Field field} and is usually found in the context of a form:
@@ -49578,6 +49640,7 @@ Ext.define('GPSName.controller.Application', {
         refs: {
             main: 'mainview',
             editButton: '#editButton',
+            deleteButton: '#deleteButton',
             contacts: 'contacts',
             tags: 'tags',
             showLocation: 'location-show',
@@ -49601,6 +49664,9 @@ Ext.define('GPSName.controller.Application', {
             },
             editButton: {
                 tap: 'onContactEdit'
+            },
+            deleteButton: {
+                tap: 'onLocationDelete'
             },
             contacts: {
                 itemtap: 'onContactSelect'
@@ -49682,6 +49748,7 @@ params:{filter: field.getValue()}
         //alert ("pop "+item.xtype);
         
         this.hideAddButton();
+        this.hideDeleteButton();
         
         
         if (item.xtype == "location-edit"||item.xtype == "contact-edit") {
@@ -49712,7 +49779,7 @@ params:{filter: field.getValue()}
         if (!this.editContact) {
             this.editContact = Ext.create('GPSName.view.Edit');
         }
-
+        this.showDeleteButton();
         // Bind the record onto the edit contact view
         var record=this.getShowLocation().getRecord();
         
@@ -49784,7 +49851,8 @@ params:{filter: field.getValue()}
                     }
             }
         });
-
+            var locationsStore = Ext.getStore('Locations');
+            locationsStore.load();
                 //Ext.Msg.alert('Updated!','');
             } else { 
                     errors.each(function (err) {
@@ -49812,6 +49880,30 @@ params:{filter: field.getValue()}
             }   
 
     },
+    
+    onLocationDelete: function () {
+        var formValues = Ext.getCmp('editform').getValues();
+        Ext.util.JSONP.request({
+            url: 'http://www.onebiglink.com/gpsname.com/index.php/feed/delete_gpsname',
+            callbackKey: 'callback',
+            params: {id:formValues.id},
+            success: function(response, request) {
+                // Unmask the viewport
+                Ext.Viewport.unmask();
+                    if (response.result !='OK')
+                    {
+                        Ext.Msg.alert('Delete Error', response.message);
+                    } 
+                    else 
+                    {
+                        Ext.Msg.alert('Deleted!','');     
+                    }
+            }
+        });
+        var locationsStore = Ext.getStore('Locations');
+        locationsStore.load();
+        this.getMain().reset();
+    },
 
     onLocationUpdate: function() {
         
@@ -49820,23 +49912,6 @@ params:{filter: field.getValue()}
             var errors = model.validate(),message = "";
             var errorMessage='';
                 if(errors.isValid()){ 
-                    /*
-                    Ext.Ajax.request({
-                        url: 'http://www.onebiglink.com/gpsname.com/index.php/feed/update_gpsname',
-                        method: 'post',
-                        params: {id:formValues.id,lat:formValues.lat,lon:formValues.lon,string:formValues.title,description:formValues.description,permissions:formValues.permissions,category:formValues.category,descriptiontags:formValues.tagged},
-                        failure : function(response){
-                        data = Ext.decode(response.responseText);
-
-                        },
-                        success: function(response, opts) {
-                        data = Ext.decode(response.responseText);
-                        if (data.errorMessage != null)
-                        {
-                        }
-                        }
-                    });
-                    */
                     
             Ext.util.JSONP.request({
             url: 'http://www.onebiglink.com/gpsname.com/index.php/feed/update_gpsname',
@@ -49857,6 +49932,8 @@ params:{filter: field.getValue()}
             }
         });
             //this.hideUpdateButton();
+            var locationsStore = Ext.getStore('Locations');
+            locationsStore.load();
                 
             } else { 
                     errors.each(function (err) {
@@ -50007,6 +50084,27 @@ Ext.Ajax.request({
         editButton.hide();
     },
 
+  showDeleteButton: function() {
+        var deleteButton = this.getDeleteButton();
+
+        if (!deleteButton.isHidden()) {
+            return;
+        }
+
+        this.hideDeleteButton();
+
+        deleteButton.show();
+    },
+
+    hideDeleteButton: function() {
+        var deleteButton = this.getDeleteButton();
+
+        if (deleteButton.isHidden()) {
+            return;
+        }
+
+        deleteButton.hide();
+    },
     showUpdateButton: function() {
         var updateButton = this.getUpdateButton();
 
@@ -52163,9 +52261,25 @@ Ext.define('GPSName.view.Main', {
                 },
                 {
                     xtype: 'button',
+                    id: 'deleteButton',
+                    text: 'Delete',
+                    ui: 'decline',
+                    align: 'right',
+                    hidden: true,
+                    hideAnimation: Ext.os.is.Android ? false : {
+                        type: 'fadeOut',
+                        duration: 200
+                    },
+                    showAnimation: Ext.os.is.Android ? false : {
+                        type: 'fadeIn',
+                        duration: 200
+                    }
+                },
+                {
+                    xtype: 'button',
                     id: 'updateButton',
                     text: 'Update',
-                    ui: 'sencha',
+                    ui: 'confirm',
                     align: 'right',
                     hidden: true,
                     hideAnimation: Ext.os.is.Android ? false : {
@@ -52679,7 +52793,7 @@ Ext.application({
     name: 'GPSName',
 
     requires: [
-        'Ext.MessageBox','Ext.form.Panel','Ext.form.FieldSet','Ext.field.Select','Ext.Map','Ext.field.Password','Ext.field.Email','Ext.util.JSONP','Ext.field.Hidden'
+        'Ext.MessageBox','Ext.form.Panel','Ext.form.FieldSet','Ext.field.Select','Ext.Map','Ext.field.Password','Ext.field.Email','Ext.util.JSONP','Ext.field.Hidden','Ext.field.Search'
     ],
 
     models: ['Locations','Tags','Settings'],

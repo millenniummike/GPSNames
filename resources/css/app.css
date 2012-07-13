@@ -6,6 +6,7 @@ input, textarea, p, blockquote, th, td {
   padding: 0;
 }
 
+
 /* line 8, ../themes/stylesheets/sencha-touch/default/core/_reset.scss */
 table {
   border-collapse: collapse;
@@ -8653,13 +8654,13 @@ html, body {
   text-shadow: #fff 0 1px 1px;
   color: #333333;
   text-shadow: rgba(255, 255, 255, 0.25) 0 0.08em 0;
-  padding: 0.6em;
+  padding: 0.5em;
   display: none !important;
   background-color: #f7f7f7;
 }
 /* line 151, ../themes/stylesheets/sencha-touch/default/widgets/_form.scss */
 .x-form-label span {
-  font-size: .8em;
+  font-size: .5em;
   font-weight: bold;
 }
 /* line 156, ../themes/stylesheets/sencha-touch/default/widgets/_form.scss */
