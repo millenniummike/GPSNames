@@ -24191,6 +24191,292 @@ Ext.define('Ext.app.Application', {
 });
 
 /**
+ * @aside guide ajax
+ * @singleton
+ *
+ * This class is used to create JsonP requests. JsonP is a mechanism that allows for making requests for data cross
+ * domain. More information is available [here](http://en.wikipedia.org/wiki/JSONP).
+ *
+ * ## Example
+ *
+ *     @example preview
+ *     Ext.Viewport.add({
+ *         xtype: 'button',
+ *         text: 'Make JsonP Request',
+ *         centered: true,
+ *         handler: function(button) {
+ *             // Mask the viewport
+ *             Ext.Viewport.mask();
+ *
+ *             // Remove the button
+ *             button.destroy();
+ *
+ *             // Make the JsonP request
+ *             Ext.data.JsonP.request({
+ *                 url: 'http://free.worldweatheronline.com/feed/weather.ashx',
+ *                 callbackKey: 'callback',
+ *                 params: {
+ *                     key: '23f6a0ab24185952101705',
+ *                     q: '94301', // Palo Alto
+ *                     format: 'json',
+ *                     num_of_days: 5
+ *                 },
+ *                 success: function(result, request) {
+ *                     // Unmask the viewport
+ *                     Ext.Viewport.unmask();
+ *
+ *                     // Get the weather data from the json object result
+ *                     var weather = result.data.weather;
+ *                     if (weather) {
+ *                         // Style the viewport html, and set the html of the max temperature
+ *                         Ext.Viewport.setStyleHtmlContent(true);
+ *                         Ext.Viewport.setHtml('The temperature in Palo Alto is <b>' + weather[0].tempMaxF + '° F</b>');
+ *                     }
+ *                 }
+ *             });
+ *         }
+ *     });
+ *
+ * See the {@link #request} method for more details on making a JsonP request.
+ */
+Ext.define('Ext.data.JsonP', {
+    alternateClassName: 'Ext.util.JSONP',
+
+    /* Begin Definitions */
+
+    singleton: true,
+
+    statics: {
+        requestCount: 0,
+        requests: {}
+    },
+
+    /* End Definitions */
+
+    /**
+     * @property {Number} [timeout=30000]
+     * A default timeout for any JsonP requests. If the request has not completed in this time the failure callback will
+     * be fired. The timeout is in ms. Defaults to 30000.
+     */
+    timeout: 30000,
+
+    /**
+     * @property {Boolean} [disableCaching=true]
+     * True to add a unique cache-buster param to requests. Defaults to true.
+     */
+    disableCaching: true,
+
+    /**
+     * @property {String} [disableCachingParam="_dc"]
+     * Change the parameter which is sent went disabling caching through a cache buster. Defaults to '_dc'.
+     */
+    disableCachingParam: '_dc',
+
+    /**
+     * @property {String} [callbackKey="callback"]
+     * Specifies the GET parameter that will be sent to the server containing the function name to be executed when the
+     * request completes. Defaults to callback. Thus, a common request will be in the form of
+     * url?callback=Ext.data.JsonP.callback1
+     */
+    callbackKey: 'callback',
+
+    /**
+     * Makes a JSONP request.
+     * @param {Object} options An object which may contain the following properties. Note that options will take
+     * priority over any defaults that are specified in the class.
+     *
+     * @param {String} options.url  The URL to request.
+     * @param {Object} [options.params]  An object containing a series of key value pairs that will be sent along with the request.
+     * @param {Number} [options.timeout]  See {@link #timeout}
+     * @param {String} [options.callbackKey]  See {@link #callbackKey}
+     * @param {String} [options.callbackName]  See {@link #callbackKey}
+     *   The function name to use for this request. By default this name will be auto-generated: Ext.data.JsonP.callback1,
+     *   Ext.data.JsonP.callback2, etc. Setting this option to "my_name" will force the function name to be
+     *   Ext.data.JsonP.my_name. Use this if you want deterministic behavior, but be careful - the callbackName should be
+     *   different in each JsonP request that you make.
+     * @param {Boolean}  [options.disableCaching]  See {@link #disableCaching}
+     * @param {String}   [options.disableCachingParam]  See {@link #disableCachingParam}
+     * @param {Function} [options.success]  A function to execute if the request succeeds.
+     * @param {Function} [options.failure]  A function to execute if the request fails.
+     * @param {Function} [options.callback]  A function to execute when the request completes, whether it is a success or failure.
+     * @param {Object}   [options.scope]  The scope in which to execute the callbacks: The "this" object for the
+     *   callback function. Defaults to the browser window.
+     *
+     * @return {Object}  request An object containing the request details.
+     */
+    request: function(options){
+        options = Ext.apply({}, options);
+
+
+        var me = this,
+            disableCaching = Ext.isDefined(options.disableCaching) ? options.disableCaching : me.disableCaching,
+            cacheParam = options.disableCachingParam || me.disableCachingParam,
+            id = ++me.statics().requestCount,
+            callbackName = options.callbackName || 'callback' + id,
+            callbackKey = options.callbackKey || me.callbackKey,
+            timeout = Ext.isDefined(options.timeout) ? options.timeout : me.timeout,
+            params = Ext.apply({}, options.params),
+            url = options.url,
+            name = Ext.isSandboxed ? Ext.getUniqueGlobalNamespace() : 'Ext',
+            request,
+            script;
+
+        params[callbackKey] = name + '.data.JsonP.' + callbackName;
+        if (disableCaching) {
+            params[cacheParam] = new Date().getTime();
+        }
+
+        script = me.createScript(url, params, options);
+
+        me.statics().requests[id] = request = {
+            url: url,
+            params: params,
+            script: script,
+            id: id,
+            scope: options.scope,
+            success: options.success,
+            failure: options.failure,
+            callback: options.callback,
+            callbackKey: callbackKey,
+            callbackName: callbackName
+        };
+
+        if (timeout > 0) {
+            request.timeout = setTimeout(Ext.bind(me.handleTimeout, me, [request]), timeout);
+        }
+
+        me.setupErrorHandling(request);
+        me[callbackName] = Ext.bind(me.handleResponse, me, [request], true);
+        me.loadScript(request);
+        return request;
+    },
+
+    /**
+     * Abort a request. If the request parameter is not specified all open requests will be aborted.
+     * @param {Object/String} request The request to abort
+     */
+    abort: function(request){
+        var requests = this.statics().requests,
+            key;
+
+        if (request) {
+            if (!request.id) {
+                request = requests[request];
+            }
+            this.abort(request);
+        } else {
+            for (key in requests) {
+                if (requests.hasOwnProperty(key)) {
+                    this.abort(requests[key]);
+                }
+            }
+        }
+    },
+
+    /**
+     * Sets up error handling for the script
+     * @private
+     * @param {Object} request The request
+     */
+    setupErrorHandling: function(request){
+        request.script.onerror = Ext.bind(this.handleError, this, [request]);
+    },
+
+    /**
+     * Handles any aborts when loading the script
+     * @private
+     * @param {Object} request The request
+     */
+    handleAbort: function(request){
+        request.errorType = 'abort';
+        this.handleResponse(null, request);
+    },
+
+    /**
+     * Handles any script errors when loading the script
+     * @private
+     * @param {Object} request The request
+     */
+    handleError: function(request){
+        request.errorType = 'error';
+        this.handleResponse(null, request);
+    },
+
+    /**
+     * Cleans up anu script handling errors
+     * @private
+     * @param {Object} request The request
+     */
+    cleanupErrorHandling: function(request){
+        request.script.onerror = null;
+    },
+
+    /**
+     * Handle any script timeouts
+     * @private
+     * @param {Object} request The request
+     */
+    handleTimeout: function(request){
+        request.errorType = 'timeout';
+        this.handleResponse(null, request);
+    },
+
+    /**
+     * Handle a successful response
+     * @private
+     * @param {Object} result The result from the request
+     * @param {Object} request The request
+     */
+    handleResponse: function(result, request){
+        var success = true;
+
+        if (request.timeout) {
+            clearTimeout(request.timeout);
+        }
+
+        delete this[request.callbackName];
+        delete this.statics()[request.id];
+
+        this.cleanupErrorHandling(request);
+        Ext.fly(request.script).destroy();
+
+        if (request.errorType) {
+            success = false;
+            Ext.callback(request.failure, request.scope, [request.errorType, request]);
+        } else {
+            Ext.callback(request.success, request.scope, [result, request]);
+        }
+        Ext.callback(request.callback, request.scope, [success, result, request.errorType, request]);
+    },
+
+    /**
+     * Create the script tag given the specified url, params and options. The options
+     * parameter is passed to allow an override to access it.
+     * @private
+     * @param {String} url The url of the request
+     * @param {Object} params Any extra params to be sent
+     * @param {Object} options The object passed to {@link #request}.
+     */
+    createScript: function(url, params, options) {
+        var script = document.createElement('script');
+        script.setAttribute("src", Ext.urlAppend(url, Ext.Object.toQueryString(params)));
+        script.setAttribute("async", true);
+        script.setAttribute("type", "text/javascript");
+        return script;
+    },
+
+    /**
+     * Loads the script for the given request by appending it to the HEAD element. This is
+     * its own method so that users can override it (as well as {@link #createScript}).
+     * @private
+     * @param request The request object.
+     */
+    loadScript: function (request) {
+        Ext.getHead().appendChild(request.script);
+    }
+});
+
+/**
  * {@link Ext.Title} is used for the {@link Ext.Toolbar#title} configuration in the {@link Ext.Toolbar} component.
  * @private
  */
@@ -24606,226 +24892,6 @@ Ext.define('Ext.util.Geolocation', {
     }
 });
 
-/**
- * @aside video list
- * @aside guide list
- *
- * IndexBar is a component used to display a list of data (primarily an alphabet) which can then be used to quickly
- * navigate through a list (see {@link Ext.List}) of data. When a user taps on an item in the {@link Ext.IndexBar},
- * it will fire the {@link #index} event.
- *
- * Here is an example of the usage in a {@link Ext.List}:
- *
- *     @example phone portrait preview
- *     Ext.define('Contact', {
- *         extend: 'Ext.data.Model',
- *         config: {
- *             fields: ['firstName', 'lastName']
- *         }
- *     });
- *
- *     var store = new Ext.data.JsonStore({
- *        model: 'Contact',
- *        sorters: 'lastName',
- *
- *        grouper: {
- *            groupFn: function(record) {
- *                return record.get('lastName')[0];
- *            }
- *        },
- *
- *        data: [
- *            {firstName: 'Tommy',   lastName: 'Maintz'},
- *            {firstName: 'Rob',     lastName: 'Dougan'},
- *            {firstName: 'Ed',      lastName: 'Spencer'},
- *            {firstName: 'Jamie',   lastName: 'Avins'},
- *            {firstName: 'Aaron',   lastName: 'Conran'},
- *            {firstName: 'Dave',    lastName: 'Kaneda'},
- *            {firstName: 'Jacky',   lastName: 'Nguyen'},
- *            {firstName: 'Abraham', lastName: 'Elias'},
- *            {firstName: 'Jay',     lastName: 'Robinson'},
- *            {firstName: 'Nigel',   lastName: 'White'},
- *            {firstName: 'Don',     lastName: 'Griffin'},
- *            {firstName: 'Nico',    lastName: 'Ferrero'},
- *            {firstName: 'Jason',   lastName: 'Johnston'}
- *        ]
- *     });
- *
- *     var list = new Ext.List({
- *        fullscreen: true,
- *        itemTpl: '<div class="contact">{firstName} <strong>{lastName}</strong></div>',
- *
- *        grouped     : true,
- *        indexBar    : true,
- *        store: store,
- *        hideOnMaskTap: false
- *     });
- *
-*/
-Ext.define('Ext.dataview.IndexBar', {
-    extend: 'Ext.Component',
-    alternateClassName: 'Ext.IndexBar',
-
-    /**
-     * @event index
-     * Fires when an item in the index bar display has been tapped.
-     * @param {Ext.dataview.IndexBar} this The IndexBar instance
-     * @param {String} html The HTML inside the tapped node.
-     * @param {Ext.dom.Element} target The node on the indexbar that has been tapped.
-     */
-
-    config: {
-        baseCls: Ext.baseCSSPrefix + 'indexbar',
-
-        /**
-         * @cfg {String} direction
-         * Layout direction, can be either 'vertical' or 'horizontal'
-         * @accessor
-         */
-        direction: 'vertical',
-
-        /**
-         * @cfg {Array} letters
-         * The letters to show on the index bar.
-         * @accessor
-         */
-        letters: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'],
-
-        ui: 'alphabet',
-
-        /**
-         * @cfg {String} listPrefix
-         * The prefix string to be appended at the beginning of the list.
-         * E.g: useful to add a "#" prefix before numbers.
-         * @accessor
-         */
-        listPrefix: null
-    },
-
-    // @private
-    itemCls: Ext.baseCSSPrefix + '',
-
-    updateDirection: function(newDirection, oldDirection) {
-        var baseCls = this.getBaseCls();
-
-        this.element.replaceCls(baseCls + '-' + oldDirection, baseCls + '-' + newDirection);
-    },
-
-    getElementConfig: function() {
-        return {
-            reference: 'wrapper',
-            classList: ['x-centered', 'x-indexbar-wrapper'],
-            children: [this.callParent()]
-        };
-    },
-
-    updateLetters: function(letters) {
-        this.innerElement.setHtml('');
-
-        if (letters) {
-            var ln = letters.length,
-                i;
-
-            for (i = 0; i < ln; i++) {
-                this.innerElement.createChild({
-                    html: letters[i]
-                });
-            }
-        }
-    },
-
-    updateListPrefix: function(listPrefix) {
-        if (listPrefix && listPrefix.length) {
-            this.innerElement.createChild({
-                html: listPrefix
-            }, 0);
-        }
-    },
-
-    // @private
-    initialize: function() {
-        this.callParent();
-
-        this.innerElement.on({
-            touchstart: this.onTouchStart,
-            touchend: this.onTouchEnd,
-            touchmove: this.onTouchMove,
-            scope: this
-        });
-    },
-
-    // @private
-    onTouchStart: function(e, t) {
-        e.stopPropagation();
-        this.innerElement.addCls(this.getBaseCls() + '-pressed');
-        this.pageBox = this.innerElement.getPageBox();
-        this.onTouchMove(e);
-    },
-
-    // @private
-    onTouchEnd: function(e, t) {
-        this.innerElement.removeCls(this.getBaseCls() + '-pressed');
-    },
-
-    // @private
-    onTouchMove: function(e) {
-        var point = Ext.util.Point.fromEvent(e),
-            target,
-            pageBox = this.pageBox;
-
-        if (!pageBox) {
-            pageBox = this.pageBox = this.el.getPageBox();
-        }
-
-        if (this.getDirection() === 'vertical') {
-            if (point.y > pageBox.bottom || point.y < pageBox.top) {
-                return;
-            }
-            target = Ext.Element.fromPoint(pageBox.left + (pageBox.width / 2), point.y);
-        }
-        else {
-            if (point.x > pageBox.right || point.x < pageBox.left) {
-                return;
-            }
-            target = Ext.Element.fromPoint(point.x, pageBox.top + (pageBox.height / 2));
-        }
-
-        if (target) {
-            this.fireEvent('index', this, target.dom.innerHTML, target);
-        }
-    },
-
-    destroy: function() {
-        var me = this,
-            elements = Array.prototype.slice.call(me.innerElement.dom.childNodes),
-            ln = elements.length,
-            i = 0;
-
-        for (; i < ln; i++) {
-            Ext.removeNode(elements[i]);
-        }
-        this.callParent();
-    }
-
-}, function() {
-});
-
-/**
- * @private - To be made a sample
- */
-Ext.define('Ext.dataview.ListItemHeader', {
-    extend: 'Ext.Component',
-    xtype : 'listitemheader',
-
-    config: {
-        /**
-         * @cfg
-         * @inheritdoc
-         */
-        baseCls: Ext.baseCSSPrefix + 'list-header',
-        docked: 'top'
-    }
-});
 /**
  * {@link Ext.Button} is a simple class to display a button in Sencha Touch. There are various
  * different styles of {@link Ext.Button} you can create by using the {@link #icon},
@@ -27198,821 +27264,197 @@ Ext.define('Ext.util.Grouper', {
     }
 });
 /**
- * Tracks what records are currently selected in a databound widget. This class is mixed in to {@link Ext.dataview.DataView} and
- * all subclasses.
- * @private
- */
-Ext.define('Ext.mixin.Selectable', {
-    extend: 'Ext.mixin.Mixin',
-
-    mixinConfig: {
-        id: 'selectable',
-        hooks: {
-            updateStore: 'updateStore'
-        }
-    },
+ * @aside video list
+ * @aside guide list
+ *
+ * IndexBar is a component used to display a list of data (primarily an alphabet) which can then be used to quickly
+ * navigate through a list (see {@link Ext.List}) of data. When a user taps on an item in the {@link Ext.IndexBar},
+ * it will fire the {@link #index} event.
+ *
+ * Here is an example of the usage in a {@link Ext.List}:
+ *
+ *     @example phone portrait preview
+ *     Ext.define('Contact', {
+ *         extend: 'Ext.data.Model',
+ *         config: {
+ *             fields: ['firstName', 'lastName']
+ *         }
+ *     });
+ *
+ *     var store = new Ext.data.JsonStore({
+ *        model: 'Contact',
+ *        sorters: 'lastName',
+ *
+ *        grouper: {
+ *            groupFn: function(record) {
+ *                return record.get('lastName')[0];
+ *            }
+ *        },
+ *
+ *        data: [
+ *            {firstName: 'Tommy',   lastName: 'Maintz'},
+ *            {firstName: 'Rob',     lastName: 'Dougan'},
+ *            {firstName: 'Ed',      lastName: 'Spencer'},
+ *            {firstName: 'Jamie',   lastName: 'Avins'},
+ *            {firstName: 'Aaron',   lastName: 'Conran'},
+ *            {firstName: 'Dave',    lastName: 'Kaneda'},
+ *            {firstName: 'Jacky',   lastName: 'Nguyen'},
+ *            {firstName: 'Abraham', lastName: 'Elias'},
+ *            {firstName: 'Jay',     lastName: 'Robinson'},
+ *            {firstName: 'Nigel',   lastName: 'White'},
+ *            {firstName: 'Don',     lastName: 'Griffin'},
+ *            {firstName: 'Nico',    lastName: 'Ferrero'},
+ *            {firstName: 'Jason',   lastName: 'Johnston'}
+ *        ]
+ *     });
+ *
+ *     var list = new Ext.List({
+ *        fullscreen: true,
+ *        itemTpl: '<div class="contact">{firstName} <strong>{lastName}</strong></div>',
+ *
+ *        grouped     : true,
+ *        indexBar    : true,
+ *        store: store,
+ *        hideOnMaskTap: false
+ *     });
+ *
+*/
+Ext.define('Ext.dataview.IndexBar', {
+    extend: 'Ext.Component',
+    alternateClassName: 'Ext.IndexBar',
 
     /**
-     * @event beforeselectionchange
-     * Fires before an item is selected
-     * @param {Ext.mixin.Selectable} this
-     * @preventable selectionchange
-     * @deprecated 2.0.0 Please listen to the {@link #selectionchange} event with an order of `before` instead.
-     */
-
-    /**
-     * @event selectionchange
-     * Fires when a selection changes
-     * @param {Ext.mixin.Selectable} this
-     * @param {Ext.data.Model[]} records The records whose selection has changed
+     * @event index
+     * Fires when an item in the index bar display has been tapped.
+     * @param {Ext.dataview.IndexBar} this The IndexBar instance
+     * @param {String} html The HTML inside the tapped node.
+     * @param {Ext.dom.Element} target The node on the indexbar that has been tapped.
      */
 
     config: {
-        /**
-         * @cfg {Boolean} disableSelection <p><tt>true</tt> to disable selection.
-         * This configuration will lock the selection model that the DataView uses.</p>
-         * @accessor
-         */
-        disableSelection: null,
+        baseCls: Ext.baseCSSPrefix + 'indexbar',
 
         /**
-         * @cfg {String} mode
-         * Modes of selection.
-         * Valid values are SINGLE, SIMPLE, and MULTI. Defaults to 'SINGLE'
+         * @cfg {String} direction
+         * Layout direction, can be either 'vertical' or 'horizontal'
          * @accessor
          */
-        mode: 'SINGLE',
+        direction: 'vertical',
 
         /**
-         * @cfg {Boolean} allowDeselect
-         * Allow users to deselect a record in a DataView, List or Grid. Only applicable when the Selectable's mode is
-         * 'SINGLE'. Defaults to false.
+         * @cfg {Array} letters
+         * The letters to show on the index bar.
          * @accessor
          */
-        allowDeselect: false,
+        letters: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'],
+
+        ui: 'alphabet',
 
         /**
-         * @cfg {Ext.data.Model} lastSelected
-         * @private
+         * @cfg {String} listPrefix
+         * The prefix string to be appended at the beginning of the list.
+         * E.g: useful to add a "#" prefix before numbers.
          * @accessor
          */
-        lastSelected: null,
-
-        /**
-         * @cfg {Ext.data.Model} lastFocused
-         * @private
-         * @accessor
-         */
-        lastFocused: null,
-
-        /**
-         * @cfg {Boolean} deselectOnContainerClick True to deselect current selection when the container body is
-         * clicked. Defaults to true
-         * @accessor
-         */
-        deselectOnContainerClick: true
+        listPrefix: null
     },
 
-    modes: {
-        SINGLE: true,
-        SIMPLE: true,
-        MULTI: true
+    // @private
+    itemCls: Ext.baseCSSPrefix + '',
+
+    updateDirection: function(newDirection, oldDirection) {
+        var baseCls = this.getBaseCls();
+
+        this.element.replaceCls(baseCls + '-' + oldDirection, baseCls + '-' + newDirection);
     },
 
-    selectableEventHooks: {
-        addrecords: 'onSelectionStoreAdd',
-        removerecords: 'onSelectionStoreRemove',
-        updaterecord: 'onSelectionStoreUpdate',
-        load: 'refreshSelection',
-        refresh: 'refreshSelection'
+    getElementConfig: function() {
+        return {
+            reference: 'wrapper',
+            classList: ['x-centered', 'x-indexbar-wrapper'],
+            children: [this.callParent()]
+        };
     },
 
-    constructor: function() {
-        this.selected = new Ext.util.MixedCollection();
-        this.callParent(arguments);
-    },
+    updateLetters: function(letters) {
+        this.innerElement.setHtml('');
 
-    /**
-     * @private
-     */
-    applyMode: function(mode) {
-        mode = mode ? mode.toUpperCase() : 'SINGLE';
-        // set to mode specified unless it doesnt exist, in that case
-        // use single.
-        return this.modes[mode] ? mode : 'SINGLE';
-    },
+        if (letters) {
+            var ln = letters.length,
+                i;
 
-    /**
-     * @private
-     */
-    updateStore: function(newStore, oldStore) {
-        var me = this,
-            bindEvents = Ext.apply({}, me.selectableEventHooks, { scope: me });
-
-        if (oldStore && Ext.isObject(oldStore) && oldStore.isStore) {
-            if (oldStore.autoDestroy) {
-                oldStore.destroy();
-            }
-            else {
-                oldStore.un(bindEvents);
-            }
-        }
-
-        if (newStore) {
-            newStore.on(bindEvents);
-            me.refreshSelection();
-        }
-    },
-
-    /**
-     * Selects all records.
-     * @param {Boolean} silent True to suppress all select events.
-     */
-    selectAll: function(silent) {
-        var me = this,
-            selections = me.getStore().getRange(),
-            ln = selections.length,
-            i = 0;
-        for (; i < ln; i++) {
-            me.select(selections[i], true, silent);
-        }
-    },
-
-    /**
-     * Deselects all records.
-     */
-    deselectAll: function(supress) {
-        var me = this,
-            selections = me.getStore().getRange();
-
-        me.deselect(selections, supress);
-
-        me.selected.clear();
-        me.setLastSelected(null);
-        me.setLastFocused(null);
-    },
-
-    // Provides differentiation of logic between MULTI, SIMPLE and SINGLE
-    // selection modes.
-    selectWithEvent: function(record) {
-        var me = this,
-            isSelected = me.isSelected(record);
-        switch (me.getMode()) {
-            case 'MULTI':
-            case 'SIMPLE':
-                if (isSelected) {
-                    me.deselect(record);
-                }
-                else {
-                    me.select(record, true);
-                }
-                break;
-            case 'SINGLE':
-                if (me.getAllowDeselect() && isSelected) {
-                    // if allowDeselect is on and this record isSelected, deselect it
-                    me.deselect(record);
-                } else {
-                    // select the record and do NOT maintain existing selections
-                    me.select(record, false);
-                }
-                break;
-        }
-    },
-
-    /**
-     * Selects a range of rows if the selection model {@link Ext.mixin.Selectable#getDisableSelection is not locked}.
-     * All rows in between startRow and endRow are also selected.
-     * @param {Number} startRow The index of the first row in the range
-     * @param {Number} endRow The index of the last row in the range
-     * @param {Boolean} keepExisting (optional) True to retain existing selections
-     */
-    selectRange: function(startRecord, endRecord, keepExisting) {
-        var me = this,
-            store = me.getStore(),
-            records = [],
-            tmp, i;
-
-        if (me.getDisableSelection()) {
-            return;
-        }
-
-        // swap values
-        if (startRecord > endRecord) {
-            tmp = endRecord;
-            endRecord = startRecord;
-            startRecord = tmp;
-        }
-
-        for (i = startRecord; i <= endRecord; i++) {
-            records.push(store.getAt(i));
-        }
-        this.doMultiSelect(records, keepExisting);
-    },
-
-    /**
-     * Adds the given records to the currently selected set
-     * @param {Ext.data.Model/Array/Number} records The records to select
-     * @param {Boolean} keepExisting If true, the existing selection will be added to (if not, the old selection is replaced)
-     * @param {Boolean} suppressEvent If true, the 'select' event will not be fired
-     */
-    select: function(records, keepExisting, suppressEvent) {
-        var me = this,
-            record;
-
-        if (me.getDisableSelection()) {
-            return;
-        }
-
-        if (typeof records === "number") {
-            records = [me.getStore().getAt(records)];
-        }
-
-        if (!records) {
-            return;
-        }
-
-        if (me.getMode() == "SINGLE" && records) {
-            record = records.length ? records[0] : records;
-            me.doSingleSelect(record, suppressEvent);
-        } else {
-            me.doMultiSelect(records, keepExisting, suppressEvent);
-        }
-    },
-
-    /**
-     * Selects a single record
-     * @private
-     */
-    doSingleSelect: function(record, suppressEvent) {
-        var me = this,
-            selected = me.selected;
-
-        if (me.getDisableSelection()) {
-            return;
-        }
-
-        // already selected.
-        // should we also check beforeselect?
-        if (me.isSelected(record)) {
-            return;
-        }
-
-        if (selected.getCount() > 0) {
-            me.deselect(me.getLastSelected(), suppressEvent);
-        }
-
-        selected.add(record);
-        me.setLastSelected(record);
-        me.onItemSelect(record, suppressEvent);
-        me.setLastFocused(record);
-
-        if (!suppressEvent) {
-            me.fireSelectionChange([record]);
-        }
-    },
-
-    /**
-     * Selects a set of multiple records
-     * @private
-     */
-    doMultiSelect: function(records, keepExisting, suppressEvent) {
-        if (records === null || this.getDisableSelection()) {
-            return;
-        }
-        records = !Ext.isArray(records) ? [records] : records;
-
-        var me = this,
-            selected = me.selected,
-            ln = records.length,
-            change = false,
-            i = 0,
-            record;
-
-        if (!keepExisting && selected.getCount() > 0) {
-            change = true;
-            me.deselect(me.getSelection(), true);
-        }
-        for (; i < ln; i++) {
-            record = records[i];
-            if (keepExisting && me.isSelected(record)) {
-                continue;
-            }
-            change = true;
-            me.setLastSelected(record);
-            selected.add(record);
-            if (!suppressEvent) {
-                me.setLastFocused(record);
-            }
-
-            me.onItemSelect(record, suppressEvent);
-        }
-        if (change && !suppressEvent) {
-            this.fireSelectionChange(records);
-        }
-    },
-
-    /**
-     * Deselects the given record(s). If many records are currently selected, it will only deselect those you pass in.
-     * @param {Number/Array/Ext.data.Model} records The record(s) to deselect. Can also be a number to reference by index
-     * @param {Boolean} suppressEvent If true the deselect event will not be fired
-     */
-    deselect: function(records, suppressEvent) {
-        var me = this;
-
-        if (me.getDisableSelection()) {
-            return;
-        }
-
-        records = Ext.isArray(records) ? records : [records];
-
-        var selected = me.selected,
-            change   = false,
-            i        = 0,
-            store    = me.getStore(),
-            ln       = records.length,
-            record;
-
-        for (; i < ln; i++) {
-            record = records[i];
-
-            if (typeof record === 'number') {
-                record = store.getAt(record);
-            }
-
-            if (selected.remove(record)) {
-                if (me.getLastSelected() == record) {
-                    me.setLastSelected(selected.last());
-                }
-                change = true;
-            }
-            if (record) {
-                me.onItemDeselect(record, suppressEvent);
-            }
-        }
-
-        if (change && !suppressEvent) {
-            me.fireSelectionChange(records);
-        }
-    },
-
-    /**
-     * Sets a record as the last focused record. This does NOT mean
-     * that the record has been selected.
-     * @param {Ext.data.Record} newRecord
-     * @param {Ext.data.Record} oldRecord
-     */
-    updateLastFocused: function(newRecord, oldRecord) {
-        this.onLastFocusChanged(oldRecord, newRecord);
-    },
-
-    fireSelectionChange: function(records) {
-        var me = this;
-            me.fireAction('selectionchange', [me, records], 'getSelection');
-    },
-
-    /**
-     * Returns an array of the currently selected records.
-     * @return {Array} An array of selected records
-     */
-    getSelection: function() {
-        return this.selected.getRange();
-    },
-
-    /**
-     * Returns <tt>true</tt> if the specified row is selected.
-     * @param {Ext.data.Model/Number} record The record or index of the record to check
-     * @return {Boolean}
-     */
-    isSelected: function(record) {
-        record = Ext.isNumber(record) ? this.getStore().getAt(record) : record;
-        return this.selected.indexOf(record) !== -1;
-    },
-
-    /**
-     * Returns true if there is a selected record.
-     * @return {Boolean}
-     */
-    hasSelection: function() {
-        return this.selected.getCount() > 0;
-    },
-
-    /**
-     * @private
-     */
-    refreshSelection: function() {
-        var me = this,
-            selections = me.getSelection();
-
-        me.deselectAll(true);
-        if (selections.length) {
-            me.select(selections, false, true);
-        }
-    },
-
-    // prune records from the SelectionModel if
-    // they were selected at the time they were
-    // removed.
-    onSelectionStoreRemove: function(store, records) {
-        var me = this,
-            selected = me.selected,
-            ln = records.length,
-            record, i;
-
-        if (me.getDisableSelection()) {
-            return;
-        }
-
-        for (i = 0; i < ln; i++) {
-            record = records[i];
-            if (selected.remove(record)) {
-                if (me.getLastSelected() == record) {
-                    me.setLastSelected(null);
-                }
-                if (me.getLastFocused() == record) {
-                    me.setLastFocused(null);
-                }
-                me.fireSelectionChange([record]);
+            for (i = 0; i < ln; i++) {
+                this.innerElement.createChild({
+                    html: letters[i]
+                });
             }
         }
     },
 
-    /**
-     * Returns the number of selections.
-     * @return {Number}
-     */
-    getSelectionCount: function() {
-        return this.selected.getCount();
+    updateListPrefix: function(listPrefix) {
+        if (listPrefix && listPrefix.length) {
+            this.innerElement.createChild({
+                html: listPrefix
+            }, 0);
+        }
     },
 
-    onSelectionStoreAdd: Ext.emptyFn,
-    onSelectionStoreUpdate: Ext.emptyFn,
-    onItemSelect: Ext.emptyFn,
-    onItemDeselect: Ext.emptyFn,
-    onLastFocusChanged: Ext.emptyFn,
-    onEditorKey: Ext.emptyFn
-}, function() {
-    /**
-     * Selects a record instance by record instance or index.
-     * @member Ext.mixin.Selectable
-     * @method doSelect
-     * @param {Ext.data.Model/Number} records An array of records or an index
-     * @param {Boolean} keepExisting
-     * @param {Boolean} suppressEvent Set to false to not fire a select event
-     * @deprecated 2.0.0 Please use {@link #select} instead.
-     */
+    // @private
+    initialize: function() {
+        this.callParent();
 
-    /**
-     * Deselects a record instance by record instance or index.
-     * @member Ext.mixin.Selectable
-     * @method doDeselect
-     * @param {Ext.data.Model/Number} records An array of records or an index
-     * @param {Boolean} suppressEvent Set to false to not fire a deselect event
-     * @deprecated 2.0.0 Please use {@link #deselect} instead.
-     */
-
-    /**
-     * Returns the selection mode currently used by this Selectable
-     * @member Ext.mixin.Selectable
-     * @method getSelectionMode
-     * @return {String} The current mode
-     * @deprecated 2.0.0 Please use {@link #getMode} instead.
-     */
-
-    /**
-     * Returns the array of previously selected items
-     * @member Ext.mixin.Selectable
-     * @method getLastSelected
-     * @return {Array} The previous selection
-     * @deprecated 2.0.0
-     */
-
-    /**
-     * Returns true if the Selectable is currently locked
-     * @member Ext.mixin.Selectable
-     * @method isLocked
-     * @return {Boolean} True if currently locked
-     * @deprecated 2.0.0 Please use {@link #getDisableSelection} instead.
-     */
-
-    /**
-     * This was an internal function accidentally exposed in 1.x and now deprecated. Calling it has no effect
-     * @member Ext.mixin.Selectable
-     * @method setLastFocused
-     * @deprecated 2.0.0
-     */
-
-    /**
-     * Deselects any currently selected records and clears all stored selections
-     * @member Ext.mixin.Selectable
-     * @method clearSelections
-     * @deprecated 2.0.0 Please use {@link #deselectAll} instead.
-     */
-
-    /**
-     * Returns the number of selections.
-     * @member Ext.mixin.Selectable
-     * @method getCount
-     * @return {Number}
-     * @deprecated 2.0.0 Please use {@link #getSelectionCount} instead.
-     */
-
-    /**
-     * @cfg {Boolean} locked
-     * @inheritdoc Ext.mixin.Selectable#disableSelection
-     * @deprecated 2.0.0 Please use {@link #disableSelection} instead.
-     */
-
-});
-
-/**
- * @private
- */
-Ext.define('Ext.dataview.element.Container', {
-    extend: 'Ext.Component',
-
-    /**
-     * @event itemtouchstart
-     * Fires whenever an item is touched
-     * @param {Ext.dataview.element.Container} this
-     * @param {Ext.dataview.component.DataItem} item The item touched
-     * @param {Number} index The index of the item touched
-     * @param {Ext.EventObject} e The event object
-     */
-
-    /**
-     * @event itemtouchmove
-     * Fires whenever an item is moved
-     * @param {Ext.dataview.element.Container} this
-     * @param {Ext.dataview.component.DataItem} item The item moved
-     * @param {Number} index The index of the item moved
-     * @param {Ext.EventObject} e The event object
-     */
-
-    /**
-     * @event itemtouchend
-     * Fires whenever an item is touched
-     * @param {Ext.dataview.element.Container} this
-     * @param {Ext.dataview.component.DataItem} item The item touched
-     * @param {Number} index The index of the item touched
-     * @param {Ext.EventObject} e The event object
-     */
-
-    /**
-     * @event itemtap
-     * Fires whenever an item is tapped
-     * @param {Ext.dataview.element.Container} this
-     * @param {Ext.dataview.component.DataItem} item The item tapped
-     * @param {Number} index The index of the item tapped
-     * @param {Ext.EventObject} e The event object
-     */
-
-    /**
-     * @event itemtaphold
-     * Fires whenever an item is tapped
-     * @param {Ext.dataview.element.Container} this
-     * @param {Ext.dataview.component.DataItem} item The item tapped
-     * @param {Number} index The index of the item tapped
-     * @param {Ext.EventObject} e The event object
-     */
-
-    /**
-     * @event itemsingletap
-     * Fires whenever an item is doubletapped
-     * @param {Ext.dataview.element.Container} this
-     * @param {Ext.dataview.component.DataItem} item The item singletapped
-     * @param {Number} index The index of the item singletapped
-     * @param {Ext.EventObject} e The event object
-     */
-
-    /**
-     * @event itemdoubletap
-     * Fires whenever an item is doubletapped
-     * @param {Ext.dataview.element.Container} this
-     * @param {Ext.dataview.component.DataItem} item The item doubletapped
-     * @param {Number} index The index of the item doubletapped
-     * @param {Ext.EventObject} e The event object
-     */
-
-    /**
-     * @event itemswipe
-     * Fires whenever an item is swiped
-     * @param {Ext.dataview.element.Container} this
-     * @param {Ext.dataview.component.DataItem} item The item swiped
-     * @param {Number} index The index of the item swiped
-     * @param {Ext.EventObject} e The event object
-     */
-
-    doInitialize: function() {
-        this.element.on({
-            touchstart: 'onItemTouchStart',
-            touchend: 'onItemTouchEnd',
-            tap: 'onItemTap',
-            taphold: 'onItemTapHold',
-            touchmove: 'onItemTouchMove',
-            singletap: 'onItemSingleTap',
-            doubletap: 'onItemDoubleTap',
-            swipe: 'onItemSwipe',
-            delegate: '> div',
+        this.innerElement.on({
+            touchstart: this.onTouchStart,
+            touchend: this.onTouchEnd,
+            touchmove: this.onTouchMove,
             scope: this
         });
     },
 
-    //@private
-    initialize: function() {
-        this.callParent();
-        this.doInitialize();
+    // @private
+    onTouchStart: function(e, t) {
+        e.stopPropagation();
+        this.innerElement.addCls(this.getBaseCls() + '-pressed');
+        this.pageBox = this.innerElement.getPageBox();
+        this.onTouchMove(e);
     },
 
-    updateBaseCls: function(newBaseCls, oldBaseCls) {
-        var me = this;
-
-        me.callParent([newBaseCls + '-container', oldBaseCls]);
+    // @private
+    onTouchEnd: function(e, t) {
+        this.innerElement.removeCls(this.getBaseCls() + '-pressed');
     },
 
-    onItemTouchStart: function(e) {
-        var me = this,
-            target = e.getTarget(),
-            index = me.getViewItems().indexOf(target);
+    // @private
+    onTouchMove: function(e) {
+        var point = Ext.util.Point.fromEvent(e),
+            target,
+            pageBox = this.pageBox;
 
-        Ext.get(target).on({
-            touchmove: 'onItemTouchMove',
-            scope   : me,
-            single: true
-        });
-
-        me.fireEvent('itemtouchstart', me, Ext.get(target), index, e);
-    },
-
-    onItemTouchEnd: function(e) {
-        var me = this,
-            target = e.getTarget(),
-            index = me.getViewItems().indexOf(target);
-
-        Ext.get(target).un({
-            touchmove: 'onItemTouchMove',
-            scope   : me
-        });
-
-        me.fireEvent('itemtouchend', me, Ext.get(target), index, e);
-    },
-
-    onItemTouchMove: function(e) {
-        var me = this,
-            target = e.getTarget(),
-            index = me.getViewItems().indexOf(target);
-
-        me.fireEvent('itemtouchmove', me, Ext.get(target), index, e);
-    },
-
-    onItemTap: function(e) {
-        var me = this,
-            target = e.getTarget(),
-            index = me.getViewItems().indexOf(target);
-
-        me.fireEvent('itemtap', me, Ext.get(target), index, e);
-    },
-
-    onItemTapHold: function(e) {
-        var me     = this,
-            target = e.getTarget(),
-            index  = me.getViewItems().indexOf(target);
-
-        me.fireEvent('itemtaphold', me, Ext.get(target), index, e);
-    },
-
-    onItemDoubleTap: function(e) {
-        var me = this,
-            target = e.getTarget(),
-            index = me.getViewItems().indexOf(target);
-
-        me.fireEvent('itemdoubletap', me, Ext.get(target), index, e);
-    },
-
-    onItemSingleTap: function(e) {
-        var me = this,
-            target = e.getTarget(),
-            index = me.getViewItems().indexOf(target);
-
-        me.fireEvent('itemsingletap', me, Ext.get(target), index, e);
-    },
-
-    onItemSwipe: function(e) {
-        var me = this,
-            target = e.getTarget(),
-            index = me.getViewItems().indexOf(target);
-
-        me.fireEvent('itemswipe', me,  Ext.get(target), index, e);
-    },
-
-    updateListItem: function(record, item) {
-        var me = this,
-            dataview = me.dataview,
-            data = dataview.prepareData(record.getData(true), dataview.getStore().indexOf(record), record);
-        item.innerHTML = me.dataview.getItemTpl().apply(data);
-    },
-
-    addListItem: function(index, record) {
-        var me = this,
-            dataview = me.dataview,
-            data = dataview.prepareData(record.getData(true), dataview.getStore().indexOf(record), record),
-            element = me.element,
-            childNodes = element.dom.childNodes,
-            ln = childNodes.length,
-            wrapElement;
-
-        wrapElement = Ext.Element.create(this.getItemElementConfig(index, data));
-
-        if (!ln || index == ln) {
-            wrapElement.appendTo(element);
-        } else {
-            wrapElement.insertBefore(childNodes[index]);
-        }
-    },
-
-    getItemElementConfig: function(index, data) {
-        var dataview = this.dataview,
-            itemCls = dataview.getItemCls(),
-            cls = dataview.getBaseCls() + '-item';
-
-        if (itemCls) {
-            cls += ' ' + itemCls;
-        }
-        return {
-            cls: cls,
-            html: dataview.getItemTpl().apply(data)
-        };
-    },
-
-    doRemoveItemCls: function(cls) {
-        var elements = this.getViewItems(),
-            ln = elements.length,
-            i = 0;
-
-        for (; i < ln; i++) {
-            Ext.fly(elements[i]).removeCls(cls);
-        }
-    },
-
-    doAddItemCls: function(cls) {
-        var elements = this.getViewItems(),
-            ln = elements.length,
-            i = 0;
-
-        for (; i < ln; i++) {
-            Ext.fly(elements[i]).addCls(cls);
-        }
-    },
-
-    // Remove
-    moveItemsToCache: function(from, to) {
-        var me = this,
-            items = me.getViewItems(),
-            i = to - from,
-            item;
-
-        for (; i >= 0; i--) {
-            item = items[from + i];
-            item.parentNode.removeChild(item);
-        }
-        if (me.getViewItems().length == 0) {
-            this.dataview.showEmptyText();
-        }
-    },
-
-    // Add
-    moveItemsFromCache: function(records) {
-        var me = this,
-            dataview = me.dataview,
-            store = dataview.getStore(),
-            ln = records.length,
-            i, record;
-
-        if (ln) {
-            dataview.hideEmptyText();
+        if (!pageBox) {
+            pageBox = this.pageBox = this.el.getPageBox();
         }
 
-        for (i = 0; i < ln; i++) {
-            records[i]._tmpIndex = store.indexOf(records[i]);
+        if (this.getDirection() === 'vertical') {
+            if (point.y > pageBox.bottom || point.y < pageBox.top) {
+                return;
+            }
+            target = Ext.Element.fromPoint(pageBox.left + (pageBox.width / 2), point.y);
+        }
+        else {
+            if (point.x > pageBox.right || point.x < pageBox.left) {
+                return;
+            }
+            target = Ext.Element.fromPoint(point.x, pageBox.top + (pageBox.height / 2));
         }
 
-        Ext.Array.sort(records, function(record1, record2) {
-            return record1._tmpIndex > record2._tmpIndex ? 1 : -1;
-        });
-
-        for (i = 0; i < ln; i++) {
-            record = records[i];
-            me.addListItem(record._tmpIndex, record);
-            delete record._tmpIndex;
+        if (target) {
+            this.fireEvent('index', this, target.dom.innerHTML, target);
         }
-    },
-
-    // Transform ChildNodes into a proper Array so we can do indexOf...
-    getViewItems: function() {
-        return Array.prototype.slice.call(this.element.dom.childNodes);
     },
 
     destroy: function() {
-        var elements = this.getViewItems(),
+        var me = this,
+            elements = Array.prototype.slice.call(me.innerElement.dom.childNodes),
             ln = elements.length,
             i = 0;
 
@@ -28021,8 +27463,26 @@ Ext.define('Ext.dataview.element.Container', {
         }
         this.callParent();
     }
+
+}, function() {
 });
 
+/**
+ * @private - To be made a sample
+ */
+Ext.define('Ext.dataview.ListItemHeader', {
+    extend: 'Ext.Component',
+    xtype : 'listitemheader',
+
+    config: {
+        /**
+         * @cfg
+         * @inheritdoc
+         */
+        baseCls: Ext.baseCSSPrefix + 'list-header',
+        docked: 'top'
+    }
+});
 /**
  * @class Ext.Decorator
  * @extend Ext.Component
@@ -29538,143 +28998,828 @@ Ext.define('Ext.mixin.Filterable', {
 });
 
 /**
- * A DataItem is a container for {@link Ext.dataview.DataView} with useComponents: true. It ties together
- * {@link Ext.data.Model records} to its contained Components via a {@link #dataMap dataMap} configuration.
- *
- * For example, lets say you have a `text` configuration which, when applied, gets turned into an instance of an
- * Ext.Component. We want to update the {@link #html} of a sub-component when the 'text' field of the record gets
- * changed.
- *
- * As you can see below, it is simply a matter of setting the key of the object to be the getter of the config
- * (getText), and then give that property a value of an object, which then has 'setHtml' (the html setter) as the key,
- * and 'text' (the field name) as the value. You can continue this for a as many sub-components as you wish.
- *
- *        dataMap: {
- *           // When the record is updated, get the text configuration, and
- *           // call {@link #setHtml} with the 'text' field of the record.
- *           getText: {
- *              setHtml: 'text'
- *          },
- *
- *          // When the record is updated, get the userName configuration, and
- *          // call {@link #setHtml} with the 'from_user' field of the record.
- *          getUserName: {
- *              setHtml: 'from_user'
- *          },
- *
- *          // When the record is updated, get the avatar configuration, and
- *          // call `setSrc` with the 'profile_image_url' field of the record.
- *          getAvatar: {
- *              setSrc: 'profile_image_url'
- *          }
- *      },
+ * Tracks what records are currently selected in a databound widget. This class is mixed in to {@link Ext.dataview.DataView} and
+ * all subclasses.
+ * @private
  */
+Ext.define('Ext.mixin.Selectable', {
+    extend: 'Ext.mixin.Mixin',
 
-Ext.define('Ext.dataview.component.DataItem', {
-    extend: 'Ext.Container',
-    xtype : 'dataitem',
+    mixinConfig: {
+        id: 'selectable',
+        hooks: {
+            updateStore: 'updateStore'
+        }
+    },
+
+    /**
+     * @event beforeselectionchange
+     * Fires before an item is selected
+     * @param {Ext.mixin.Selectable} this
+     * @preventable selectionchange
+     * @deprecated 2.0.0 Please listen to the {@link #selectionchange} event with an order of `before` instead.
+     */
+
+    /**
+     * @event selectionchange
+     * Fires when a selection changes
+     * @param {Ext.mixin.Selectable} this
+     * @param {Ext.data.Model[]} records The records whose selection has changed
+     */
 
     config: {
-        baseCls: Ext.baseCSSPrefix + 'data-item',
-
-        defaultType: 'component',
-
         /**
-         * @cfg {Ext.data.Model} record The model instance of this DataItem. It is controlled by the Component DataView
+         * @cfg {Boolean} disableSelection <p><tt>true</tt> to disable selection.
+         * This configuration will lock the selection model that the DataView uses.</p>
          * @accessor
          */
-        record: null,
+        disableSelection: null,
 
         /**
-         * @cfg {String} itemCls
-         * An additional CSS class to apply to items within the DataView.
+         * @cfg {String} mode
+         * Modes of selection.
+         * Valid values are SINGLE, SIMPLE, and MULTI. Defaults to 'SINGLE'
          * @accessor
          */
-        itemCls: null,
+        mode: 'SINGLE',
 
         /**
-         * @cfg dataMap
-         * The dataMap allows you to map {@link #record} fields to specific configurations in this component.
-         *
-         * For example, lets say you have a `text` configuration which, when applied, gets turned into an instance of an Ext.Component.
-         * We want to update the {@link #html} of this component when the 'text' field of the record gets changed.
-         * For example:
-         *
-         *      dataMap: {
-         *          getText: {
-         *              setHtml: 'text'
-         *          }
-         *      }
-         *
-         * In this example, it is simply a matter of setting the key of the object to be the getter of the config (getText), and then give that
-         * property a value of an object, which then has 'setHtml' (the html setter) as the key, and 'text' (the field name) as the value.
+         * @cfg {Boolean} allowDeselect
+         * Allow users to deselect a record in a DataView, List or Grid. Only applicable when the Selectable's mode is
+         * 'SINGLE'. Defaults to false.
+         * @accessor
          */
-        dataMap: {},
+        allowDeselect: false,
 
-        items: [{
-            xtype: 'component'
-        }]
+        /**
+         * @cfg {Ext.data.Model} lastSelected
+         * @private
+         * @accessor
+         */
+        lastSelected: null,
+
+        /**
+         * @cfg {Ext.data.Model} lastFocused
+         * @private
+         * @accessor
+         */
+        lastFocused: null,
+
+        /**
+         * @cfg {Boolean} deselectOnContainerClick True to deselect current selection when the container body is
+         * clicked. Defaults to true
+         * @accessor
+         */
+        deselectOnContainerClick: true
+    },
+
+    modes: {
+        SINGLE: true,
+        SIMPLE: true,
+        MULTI: true
+    },
+
+    selectableEventHooks: {
+        addrecords: 'onSelectionStoreAdd',
+        removerecords: 'onSelectionStoreRemove',
+        updaterecord: 'onSelectionStoreUpdate',
+        load: 'refreshSelection',
+        refresh: 'refreshSelection'
+    },
+
+    constructor: function() {
+        this.selected = new Ext.util.MixedCollection();
+        this.callParent(arguments);
+    },
+
+    /**
+     * @private
+     */
+    applyMode: function(mode) {
+        mode = mode ? mode.toUpperCase() : 'SINGLE';
+        // set to mode specified unless it doesnt exist, in that case
+        // use single.
+        return this.modes[mode] ? mode : 'SINGLE';
+    },
+
+    /**
+     * @private
+     */
+    updateStore: function(newStore, oldStore) {
+        var me = this,
+            bindEvents = Ext.apply({}, me.selectableEventHooks, { scope: me });
+
+        if (oldStore && Ext.isObject(oldStore) && oldStore.isStore) {
+            if (oldStore.autoDestroy) {
+                oldStore.destroy();
+            }
+            else {
+                oldStore.un(bindEvents);
+            }
+        }
+
+        if (newStore) {
+            newStore.on(bindEvents);
+            me.refreshSelection();
+        }
+    },
+
+    /**
+     * Selects all records.
+     * @param {Boolean} silent True to suppress all select events.
+     */
+    selectAll: function(silent) {
+        var me = this,
+            selections = me.getStore().getRange(),
+            ln = selections.length,
+            i = 0;
+        for (; i < ln; i++) {
+            me.select(selections[i], true, silent);
+        }
+    },
+
+    /**
+     * Deselects all records.
+     */
+    deselectAll: function(supress) {
+        var me = this,
+            selections = me.getStore().getRange();
+
+        me.deselect(selections, supress);
+
+        me.selected.clear();
+        me.setLastSelected(null);
+        me.setLastFocused(null);
+    },
+
+    // Provides differentiation of logic between MULTI, SIMPLE and SINGLE
+    // selection modes.
+    selectWithEvent: function(record) {
+        var me = this,
+            isSelected = me.isSelected(record);
+        switch (me.getMode()) {
+            case 'MULTI':
+            case 'SIMPLE':
+                if (isSelected) {
+                    me.deselect(record);
+                }
+                else {
+                    me.select(record, true);
+                }
+                break;
+            case 'SINGLE':
+                if (me.getAllowDeselect() && isSelected) {
+                    // if allowDeselect is on and this record isSelected, deselect it
+                    me.deselect(record);
+                } else {
+                    // select the record and do NOT maintain existing selections
+                    me.select(record, false);
+                }
+                break;
+        }
+    },
+
+    /**
+     * Selects a range of rows if the selection model {@link Ext.mixin.Selectable#getDisableSelection is not locked}.
+     * All rows in between startRow and endRow are also selected.
+     * @param {Number} startRow The index of the first row in the range
+     * @param {Number} endRow The index of the last row in the range
+     * @param {Boolean} keepExisting (optional) True to retain existing selections
+     */
+    selectRange: function(startRecord, endRecord, keepExisting) {
+        var me = this,
+            store = me.getStore(),
+            records = [],
+            tmp, i;
+
+        if (me.getDisableSelection()) {
+            return;
+        }
+
+        // swap values
+        if (startRecord > endRecord) {
+            tmp = endRecord;
+            endRecord = startRecord;
+            startRecord = tmp;
+        }
+
+        for (i = startRecord; i <= endRecord; i++) {
+            records.push(store.getAt(i));
+        }
+        this.doMultiSelect(records, keepExisting);
+    },
+
+    /**
+     * Adds the given records to the currently selected set
+     * @param {Ext.data.Model/Array/Number} records The records to select
+     * @param {Boolean} keepExisting If true, the existing selection will be added to (if not, the old selection is replaced)
+     * @param {Boolean} suppressEvent If true, the 'select' event will not be fired
+     */
+    select: function(records, keepExisting, suppressEvent) {
+        var me = this,
+            record;
+
+        if (me.getDisableSelection()) {
+            return;
+        }
+
+        if (typeof records === "number") {
+            records = [me.getStore().getAt(records)];
+        }
+
+        if (!records) {
+            return;
+        }
+
+        if (me.getMode() == "SINGLE" && records) {
+            record = records.length ? records[0] : records;
+            me.doSingleSelect(record, suppressEvent);
+        } else {
+            me.doMultiSelect(records, keepExisting, suppressEvent);
+        }
+    },
+
+    /**
+     * Selects a single record
+     * @private
+     */
+    doSingleSelect: function(record, suppressEvent) {
+        var me = this,
+            selected = me.selected;
+
+        if (me.getDisableSelection()) {
+            return;
+        }
+
+        // already selected.
+        // should we also check beforeselect?
+        if (me.isSelected(record)) {
+            return;
+        }
+
+        if (selected.getCount() > 0) {
+            me.deselect(me.getLastSelected(), suppressEvent);
+        }
+
+        selected.add(record);
+        me.setLastSelected(record);
+        me.onItemSelect(record, suppressEvent);
+        me.setLastFocused(record);
+
+        if (!suppressEvent) {
+            me.fireSelectionChange([record]);
+        }
+    },
+
+    /**
+     * Selects a set of multiple records
+     * @private
+     */
+    doMultiSelect: function(records, keepExisting, suppressEvent) {
+        if (records === null || this.getDisableSelection()) {
+            return;
+        }
+        records = !Ext.isArray(records) ? [records] : records;
+
+        var me = this,
+            selected = me.selected,
+            ln = records.length,
+            change = false,
+            i = 0,
+            record;
+
+        if (!keepExisting && selected.getCount() > 0) {
+            change = true;
+            me.deselect(me.getSelection(), true);
+        }
+        for (; i < ln; i++) {
+            record = records[i];
+            if (keepExisting && me.isSelected(record)) {
+                continue;
+            }
+            change = true;
+            me.setLastSelected(record);
+            selected.add(record);
+            if (!suppressEvent) {
+                me.setLastFocused(record);
+            }
+
+            me.onItemSelect(record, suppressEvent);
+        }
+        if (change && !suppressEvent) {
+            this.fireSelectionChange(records);
+        }
+    },
+
+    /**
+     * Deselects the given record(s). If many records are currently selected, it will only deselect those you pass in.
+     * @param {Number/Array/Ext.data.Model} records The record(s) to deselect. Can also be a number to reference by index
+     * @param {Boolean} suppressEvent If true the deselect event will not be fired
+     */
+    deselect: function(records, suppressEvent) {
+        var me = this;
+
+        if (me.getDisableSelection()) {
+            return;
+        }
+
+        records = Ext.isArray(records) ? records : [records];
+
+        var selected = me.selected,
+            change   = false,
+            i        = 0,
+            store    = me.getStore(),
+            ln       = records.length,
+            record;
+
+        for (; i < ln; i++) {
+            record = records[i];
+
+            if (typeof record === 'number') {
+                record = store.getAt(record);
+            }
+
+            if (selected.remove(record)) {
+                if (me.getLastSelected() == record) {
+                    me.setLastSelected(selected.last());
+                }
+                change = true;
+            }
+            if (record) {
+                me.onItemDeselect(record, suppressEvent);
+            }
+        }
+
+        if (change && !suppressEvent) {
+            me.fireSelectionChange(records);
+        }
+    },
+
+    /**
+     * Sets a record as the last focused record. This does NOT mean
+     * that the record has been selected.
+     * @param {Ext.data.Record} newRecord
+     * @param {Ext.data.Record} oldRecord
+     */
+    updateLastFocused: function(newRecord, oldRecord) {
+        this.onLastFocusChanged(oldRecord, newRecord);
+    },
+
+    fireSelectionChange: function(records) {
+        var me = this;
+            me.fireAction('selectionchange', [me, records], 'getSelection');
+    },
+
+    /**
+     * Returns an array of the currently selected records.
+     * @return {Array} An array of selected records
+     */
+    getSelection: function() {
+        return this.selected.getRange();
+    },
+
+    /**
+     * Returns <tt>true</tt> if the specified row is selected.
+     * @param {Ext.data.Model/Number} record The record or index of the record to check
+     * @return {Boolean}
+     */
+    isSelected: function(record) {
+        record = Ext.isNumber(record) ? this.getStore().getAt(record) : record;
+        return this.selected.indexOf(record) !== -1;
+    },
+
+    /**
+     * Returns true if there is a selected record.
+     * @return {Boolean}
+     */
+    hasSelection: function() {
+        return this.selected.getCount() > 0;
+    },
+
+    /**
+     * @private
+     */
+    refreshSelection: function() {
+        var me = this,
+            selections = me.getSelection();
+
+        me.deselectAll(true);
+        if (selections.length) {
+            me.select(selections, false, true);
+        }
+    },
+
+    // prune records from the SelectionModel if
+    // they were selected at the time they were
+    // removed.
+    onSelectionStoreRemove: function(store, records) {
+        var me = this,
+            selected = me.selected,
+            ln = records.length,
+            record, i;
+
+        if (me.getDisableSelection()) {
+            return;
+        }
+
+        for (i = 0; i < ln; i++) {
+            record = records[i];
+            if (selected.remove(record)) {
+                if (me.getLastSelected() == record) {
+                    me.setLastSelected(null);
+                }
+                if (me.getLastFocused() == record) {
+                    me.setLastFocused(null);
+                }
+                me.fireSelectionChange([record]);
+            }
+        }
+    },
+
+    /**
+     * Returns the number of selections.
+     * @return {Number}
+     */
+    getSelectionCount: function() {
+        return this.selected.getCount();
+    },
+
+    onSelectionStoreAdd: Ext.emptyFn,
+    onSelectionStoreUpdate: Ext.emptyFn,
+    onItemSelect: Ext.emptyFn,
+    onItemDeselect: Ext.emptyFn,
+    onLastFocusChanged: Ext.emptyFn,
+    onEditorKey: Ext.emptyFn
+}, function() {
+    /**
+     * Selects a record instance by record instance or index.
+     * @member Ext.mixin.Selectable
+     * @method doSelect
+     * @param {Ext.data.Model/Number} records An array of records or an index
+     * @param {Boolean} keepExisting
+     * @param {Boolean} suppressEvent Set to false to not fire a select event
+     * @deprecated 2.0.0 Please use {@link #select} instead.
+     */
+
+    /**
+     * Deselects a record instance by record instance or index.
+     * @member Ext.mixin.Selectable
+     * @method doDeselect
+     * @param {Ext.data.Model/Number} records An array of records or an index
+     * @param {Boolean} suppressEvent Set to false to not fire a deselect event
+     * @deprecated 2.0.0 Please use {@link #deselect} instead.
+     */
+
+    /**
+     * Returns the selection mode currently used by this Selectable
+     * @member Ext.mixin.Selectable
+     * @method getSelectionMode
+     * @return {String} The current mode
+     * @deprecated 2.0.0 Please use {@link #getMode} instead.
+     */
+
+    /**
+     * Returns the array of previously selected items
+     * @member Ext.mixin.Selectable
+     * @method getLastSelected
+     * @return {Array} The previous selection
+     * @deprecated 2.0.0
+     */
+
+    /**
+     * Returns true if the Selectable is currently locked
+     * @member Ext.mixin.Selectable
+     * @method isLocked
+     * @return {Boolean} True if currently locked
+     * @deprecated 2.0.0 Please use {@link #getDisableSelection} instead.
+     */
+
+    /**
+     * This was an internal function accidentally exposed in 1.x and now deprecated. Calling it has no effect
+     * @member Ext.mixin.Selectable
+     * @method setLastFocused
+     * @deprecated 2.0.0
+     */
+
+    /**
+     * Deselects any currently selected records and clears all stored selections
+     * @member Ext.mixin.Selectable
+     * @method clearSelections
+     * @deprecated 2.0.0 Please use {@link #deselectAll} instead.
+     */
+
+    /**
+     * Returns the number of selections.
+     * @member Ext.mixin.Selectable
+     * @method getCount
+     * @return {Number}
+     * @deprecated 2.0.0 Please use {@link #getSelectionCount} instead.
+     */
+
+    /**
+     * @cfg {Boolean} locked
+     * @inheritdoc Ext.mixin.Selectable#disableSelection
+     * @deprecated 2.0.0 Please use {@link #disableSelection} instead.
+     */
+
+});
+
+/**
+ * @private
+ */
+Ext.define('Ext.dataview.element.Container', {
+    extend: 'Ext.Component',
+
+    /**
+     * @event itemtouchstart
+     * Fires whenever an item is touched
+     * @param {Ext.dataview.element.Container} this
+     * @param {Ext.dataview.component.DataItem} item The item touched
+     * @param {Number} index The index of the item touched
+     * @param {Ext.EventObject} e The event object
+     */
+
+    /**
+     * @event itemtouchmove
+     * Fires whenever an item is moved
+     * @param {Ext.dataview.element.Container} this
+     * @param {Ext.dataview.component.DataItem} item The item moved
+     * @param {Number} index The index of the item moved
+     * @param {Ext.EventObject} e The event object
+     */
+
+    /**
+     * @event itemtouchend
+     * Fires whenever an item is touched
+     * @param {Ext.dataview.element.Container} this
+     * @param {Ext.dataview.component.DataItem} item The item touched
+     * @param {Number} index The index of the item touched
+     * @param {Ext.EventObject} e The event object
+     */
+
+    /**
+     * @event itemtap
+     * Fires whenever an item is tapped
+     * @param {Ext.dataview.element.Container} this
+     * @param {Ext.dataview.component.DataItem} item The item tapped
+     * @param {Number} index The index of the item tapped
+     * @param {Ext.EventObject} e The event object
+     */
+
+    /**
+     * @event itemtaphold
+     * Fires whenever an item is tapped
+     * @param {Ext.dataview.element.Container} this
+     * @param {Ext.dataview.component.DataItem} item The item tapped
+     * @param {Number} index The index of the item tapped
+     * @param {Ext.EventObject} e The event object
+     */
+
+    /**
+     * @event itemsingletap
+     * Fires whenever an item is doubletapped
+     * @param {Ext.dataview.element.Container} this
+     * @param {Ext.dataview.component.DataItem} item The item singletapped
+     * @param {Number} index The index of the item singletapped
+     * @param {Ext.EventObject} e The event object
+     */
+
+    /**
+     * @event itemdoubletap
+     * Fires whenever an item is doubletapped
+     * @param {Ext.dataview.element.Container} this
+     * @param {Ext.dataview.component.DataItem} item The item doubletapped
+     * @param {Number} index The index of the item doubletapped
+     * @param {Ext.EventObject} e The event object
+     */
+
+    /**
+     * @event itemswipe
+     * Fires whenever an item is swiped
+     * @param {Ext.dataview.element.Container} this
+     * @param {Ext.dataview.component.DataItem} item The item swiped
+     * @param {Number} index The index of the item swiped
+     * @param {Ext.EventObject} e The event object
+     */
+
+    doInitialize: function() {
+        this.element.on({
+            touchstart: 'onItemTouchStart',
+            touchend: 'onItemTouchEnd',
+            tap: 'onItemTap',
+            taphold: 'onItemTapHold',
+            touchmove: 'onItemTouchMove',
+            singletap: 'onItemSingleTap',
+            doubletap: 'onItemDoubleTap',
+            swipe: 'onItemSwipe',
+            delegate: '> div',
+            scope: this
+        });
+    },
+
+    //@private
+    initialize: function() {
+        this.callParent();
+        this.doInitialize();
     },
 
     updateBaseCls: function(newBaseCls, oldBaseCls) {
         var me = this;
 
-        me.callParent(arguments);
+        me.callParent([newBaseCls + '-container', oldBaseCls]);
     },
 
-    updateItemCls: function(newCls, oldCls) {
-        if (oldCls) {
-            this.removeCls(oldCls);
-        }
-        if (newCls) {
-            this.addCls(newCls);
-        }
-    },
-
-    /**
-     * Updates this container's child items, passing through the dataMap.
-     * @param newRecord
-     * @private
-     */
-    updateRecord: function(newRecord) {
-        if (!newRecord) {
-            return;
-        }
-        this._record = newRecord;
-
+    onItemTouchStart: function(e) {
         var me = this,
-            dataview = me.config.dataview,
-            data = dataview.prepareData(newRecord.getData(true), dataview.getStore().indexOf(newRecord), newRecord),
-            items = me.getItems(),
-            item = items.first(),
-            dataMap = me.getDataMap(),
-            componentName, component, setterMap, setterName;
+            target = e.getTarget(),
+            index = me.getViewItems().indexOf(target);
 
-        if (!item) {
-            return;
+        Ext.get(target).on({
+            touchmove: 'onItemTouchMove',
+            scope   : me,
+            single: true
+        });
+
+        me.fireEvent('itemtouchstart', me, Ext.get(target), index, e);
+    },
+
+    onItemTouchEnd: function(e) {
+        var me = this,
+            target = e.getTarget(),
+            index = me.getViewItems().indexOf(target);
+
+        Ext.get(target).un({
+            touchmove: 'onItemTouchMove',
+            scope   : me
+        });
+
+        me.fireEvent('itemtouchend', me, Ext.get(target), index, e);
+    },
+
+    onItemTouchMove: function(e) {
+        var me = this,
+            target = e.getTarget(),
+            index = me.getViewItems().indexOf(target);
+
+        me.fireEvent('itemtouchmove', me, Ext.get(target), index, e);
+    },
+
+    onItemTap: function(e) {
+        var me = this,
+            target = e.getTarget(),
+            index = me.getViewItems().indexOf(target);
+
+        me.fireEvent('itemtap', me, Ext.get(target), index, e);
+    },
+
+    onItemTapHold: function(e) {
+        var me     = this,
+            target = e.getTarget(),
+            index  = me.getViewItems().indexOf(target);
+
+        me.fireEvent('itemtaphold', me, Ext.get(target), index, e);
+    },
+
+    onItemDoubleTap: function(e) {
+        var me = this,
+            target = e.getTarget(),
+            index = me.getViewItems().indexOf(target);
+
+        me.fireEvent('itemdoubletap', me, Ext.get(target), index, e);
+    },
+
+    onItemSingleTap: function(e) {
+        var me = this,
+            target = e.getTarget(),
+            index = me.getViewItems().indexOf(target);
+
+        me.fireEvent('itemsingletap', me, Ext.get(target), index, e);
+    },
+
+    onItemSwipe: function(e) {
+        var me = this,
+            target = e.getTarget(),
+            index = me.getViewItems().indexOf(target);
+
+        me.fireEvent('itemswipe', me,  Ext.get(target), index, e);
+    },
+
+    updateListItem: function(record, item) {
+        var me = this,
+            dataview = me.dataview,
+            data = dataview.prepareData(record.getData(true), dataview.getStore().indexOf(record), record);
+        item.innerHTML = me.dataview.getItemTpl().apply(data);
+    },
+
+    addListItem: function(index, record) {
+        var me = this,
+            dataview = me.dataview,
+            data = dataview.prepareData(record.getData(true), dataview.getStore().indexOf(record), record),
+            element = me.element,
+            childNodes = element.dom.childNodes,
+            ln = childNodes.length,
+            wrapElement;
+
+        wrapElement = Ext.Element.create(this.getItemElementConfig(index, data));
+
+        if (!ln || index == ln) {
+            wrapElement.appendTo(element);
+        } else {
+            wrapElement.insertBefore(childNodes[index]);
         }
-        for (componentName in dataMap) {
-            setterMap = dataMap[componentName];
-            component = me[componentName]();
-            if (component) {
-                for (setterName in setterMap) {
-                    if (component[setterName]) {
-                        component[setterName](data[setterMap[setterName]]);
-                    }
-                }
-            }
+    },
+
+    getItemElementConfig: function(index, data) {
+        var dataview = this.dataview,
+            itemCls = dataview.getItemCls(),
+            cls = dataview.getBaseCls() + '-item';
+
+        if (itemCls) {
+            cls += ' ' + itemCls;
+        }
+        return {
+            cls: cls,
+            html: dataview.getItemTpl().apply(data)
+        };
+    },
+
+    doRemoveItemCls: function(cls) {
+        var elements = this.getViewItems(),
+            ln = elements.length,
+            i = 0;
+
+        for (; i < ln; i++) {
+            Ext.fly(elements[i]).removeCls(cls);
+        }
+    },
+
+    doAddItemCls: function(cls) {
+        var elements = this.getViewItems(),
+            ln = elements.length,
+            i = 0;
+
+        for (; i < ln; i++) {
+            Ext.fly(elements[i]).addCls(cls);
+        }
+    },
+
+    // Remove
+    moveItemsToCache: function(from, to) {
+        var me = this,
+            items = me.getViewItems(),
+            i = to - from,
+            item;
+
+        for (; i >= 0; i--) {
+            item = items[from + i];
+            item.parentNode.removeChild(item);
+        }
+        if (me.getViewItems().length == 0) {
+            this.dataview.showEmptyText();
+        }
+    },
+
+    // Add
+    moveItemsFromCache: function(records) {
+        var me = this,
+            dataview = me.dataview,
+            store = dataview.getStore(),
+            ln = records.length,
+            i, record;
+
+        if (ln) {
+            dataview.hideEmptyText();
         }
 
-        /**
-         * @event updatedata
-         * Fires whenever the data of the DataItem is updated
-         * @param {Ext.dataview.component.DataItem} this The DataItem instance
-         * @param {Object} newData The new data
-         */
-        me.fireEvent('updatedata', me, data);
+        for (i = 0; i < ln; i++) {
+            records[i]._tmpIndex = store.indexOf(records[i]);
+        }
 
-        // Bypassing setter because sometimes we pass the same object (different properties)
-        item.updateData(data);
+        Ext.Array.sort(records, function(record1, record2) {
+            return record1._tmpIndex > record2._tmpIndex ? 1 : -1;
+        });
+
+        for (i = 0; i < ln; i++) {
+            record = records[i];
+            me.addListItem(record._tmpIndex, record);
+            delete record._tmpIndex;
+        }
+    },
+
+    // Transform ChildNodes into a proper Array so we can do indexOf...
+    getViewItems: function() {
+        return Array.prototype.slice.call(this.element.dom.childNodes);
+    },
+
+    destroy: function() {
+        var elements = this.getViewItems(),
+            ln = elements.length,
+            i = 0;
+
+        for (; i < ln; i++) {
+            Ext.removeNode(elements[i]);
+        }
+        this.callParent();
     }
 });
 
@@ -30138,6 +30283,147 @@ Ext.define('Ext.data.Error', {
 
     constructor: function(config) {
         this.initConfig(config);
+    }
+});
+
+/**
+ * A DataItem is a container for {@link Ext.dataview.DataView} with useComponents: true. It ties together
+ * {@link Ext.data.Model records} to its contained Components via a {@link #dataMap dataMap} configuration.
+ *
+ * For example, lets say you have a `text` configuration which, when applied, gets turned into an instance of an
+ * Ext.Component. We want to update the {@link #html} of a sub-component when the 'text' field of the record gets
+ * changed.
+ *
+ * As you can see below, it is simply a matter of setting the key of the object to be the getter of the config
+ * (getText), and then give that property a value of an object, which then has 'setHtml' (the html setter) as the key,
+ * and 'text' (the field name) as the value. You can continue this for a as many sub-components as you wish.
+ *
+ *        dataMap: {
+ *           // When the record is updated, get the text configuration, and
+ *           // call {@link #setHtml} with the 'text' field of the record.
+ *           getText: {
+ *              setHtml: 'text'
+ *          },
+ *
+ *          // When the record is updated, get the userName configuration, and
+ *          // call {@link #setHtml} with the 'from_user' field of the record.
+ *          getUserName: {
+ *              setHtml: 'from_user'
+ *          },
+ *
+ *          // When the record is updated, get the avatar configuration, and
+ *          // call `setSrc` with the 'profile_image_url' field of the record.
+ *          getAvatar: {
+ *              setSrc: 'profile_image_url'
+ *          }
+ *      },
+ */
+
+Ext.define('Ext.dataview.component.DataItem', {
+    extend: 'Ext.Container',
+    xtype : 'dataitem',
+
+    config: {
+        baseCls: Ext.baseCSSPrefix + 'data-item',
+
+        defaultType: 'component',
+
+        /**
+         * @cfg {Ext.data.Model} record The model instance of this DataItem. It is controlled by the Component DataView
+         * @accessor
+         */
+        record: null,
+
+        /**
+         * @cfg {String} itemCls
+         * An additional CSS class to apply to items within the DataView.
+         * @accessor
+         */
+        itemCls: null,
+
+        /**
+         * @cfg dataMap
+         * The dataMap allows you to map {@link #record} fields to specific configurations in this component.
+         *
+         * For example, lets say you have a `text` configuration which, when applied, gets turned into an instance of an Ext.Component.
+         * We want to update the {@link #html} of this component when the 'text' field of the record gets changed.
+         * For example:
+         *
+         *      dataMap: {
+         *          getText: {
+         *              setHtml: 'text'
+         *          }
+         *      }
+         *
+         * In this example, it is simply a matter of setting the key of the object to be the getter of the config (getText), and then give that
+         * property a value of an object, which then has 'setHtml' (the html setter) as the key, and 'text' (the field name) as the value.
+         */
+        dataMap: {},
+
+        items: [{
+            xtype: 'component'
+        }]
+    },
+
+    updateBaseCls: function(newBaseCls, oldBaseCls) {
+        var me = this;
+
+        me.callParent(arguments);
+    },
+
+    updateItemCls: function(newCls, oldCls) {
+        if (oldCls) {
+            this.removeCls(oldCls);
+        }
+        if (newCls) {
+            this.addCls(newCls);
+        }
+    },
+
+    /**
+     * Updates this container's child items, passing through the dataMap.
+     * @param newRecord
+     * @private
+     */
+    updateRecord: function(newRecord) {
+        if (!newRecord) {
+            return;
+        }
+        this._record = newRecord;
+
+        var me = this,
+            dataview = me.config.dataview,
+            data = dataview.prepareData(newRecord.getData(true), dataview.getStore().indexOf(newRecord), newRecord),
+            items = me.getItems(),
+            item = items.first(),
+            dataMap = me.getDataMap(),
+            componentName, component, setterMap, setterName;
+
+        if (!item) {
+            return;
+        }
+        for (componentName in dataMap) {
+            setterMap = dataMap[componentName];
+            component = me[componentName]();
+            if (component) {
+                for (setterName in setterMap) {
+                    if (component[setterName]) {
+                        component[setterName](data[setterMap[setterName]]);
+                    }
+                }
+            }
+        }
+
+        /**
+         * @event updatedata
+         * Fires whenever the data of the DataItem is updated
+         * @param {Ext.dataview.component.DataItem} this The DataItem instance
+         * @param {Object} newData The new data
+         */
+        me.fireEvent('updatedata', me, data);
+
+        // Bypassing setter because sometimes we pass the same object (different properties)
+        item.updateData(data);
     }
 });
 
@@ -32103,142 +32389,6 @@ Ext.define('Ext.Ajax', {
 });
 
 /**
- * @private
-*/
-Ext.define('Ext.dataview.element.List', {
-    extend: 'Ext.dataview.element.Container',
-
-    updateBaseCls: function(newBaseCls) {
-        var me = this;
-
-        me.itemClsShortCache = newBaseCls + '-item';
-
-        me.headerClsShortCache = newBaseCls + '-header';
-        me.headerClsCache = '.' + me.headerClsShortCache;
-
-        me.headerItemClsShortCache = newBaseCls + '-header-item';
-
-        me.footerClsShortCache = newBaseCls + '-footer-item';
-        me.footerClsCache = '.' + me.footerClsShortCache;
-
-        me.labelClsShortCache = newBaseCls + '-item-label';
-        me.labelClsCache = '.' + me.labelClsShortCache;
-
-        me.disclosureClsShortCache = newBaseCls + '-disclosure';
-        me.disclosureClsCache = '.' + me.disclosureClsShortCache;
-
-        me.iconClsShortCache = newBaseCls + '-icon';
-        me.iconClsCache = '.' + me.iconClsShortCache;
-
-        this.callParent(arguments);
-    },
-
-    hiddenDisplayCache: Ext.baseCSSPrefix + 'hidden-display',
-
-    getItemElementConfig: function(index, data) {
-        var me = this,
-            dataview = me.dataview,
-            itemCls = dataview.getItemCls(),
-            cls = me.itemClsShortCache,
-            config, iconSrc;
-
-        if (itemCls) {
-            cls += ' ' + itemCls;
-        }
-
-        config = {
-            cls: cls,
-            children: [{
-                cls: me.labelClsShortCache,
-                html: dataview.getItemTpl().apply(data)
-            }]
-        };
-
-        if (dataview.getIcon()) {
-            iconSrc = data.iconSrc;
-            config.children.push({
-                cls: me.iconClsShortCache,
-                style: 'background-image: ' + iconSrc ? 'url("' + newSrc + '")' : ''
-            });
-        }
-
-        if (dataview.getOnItemDisclosure()) {
-            config.children.push({
-                cls: me.disclosureClsShortCache + ' ' + ((data[dataview.getDisclosureProperty()] === false) ? me.hiddenDisplayCache : '')
-            });
-        }
-        return config;
-    },
-
-    updateListItem: function(record, item) {
-        var me = this,
-            dataview = me.dataview,
-            extItem = Ext.fly(item),
-            innerItem = extItem.down(me.labelClsCache, true),
-            data = dataview.prepareData(record.getData(true), dataview.getStore().indexOf(record), record),
-            disclosureProperty = dataview.getDisclosureProperty(),
-            hasDisclosureProperty = data && data.hasOwnProperty(disclosureProperty),
-            iconSrc = data && data.hasOwnProperty('iconSrc'),
-            disclosureEl, iconEl;
-
-        innerItem.innerHTML = dataview.getItemTpl().apply(data);
-
-        if (hasDisclosureProperty) {
-            disclosureEl = extItem.down(me.disclosureClsCache);
-            disclosureEl[data[disclosureProperty] === false ? 'removeCls' : 'addCls'](me.hiddenDisplayCache);
-        }
-
-        if (dataview.getIcon()) {
-            iconEl = extItem.down(me.iconClsCache, true);
-            iconEl.style.backgroundImage = iconSrc ? 'url("' + iconSrc + '")' : '';
-        }
-    },
-
-    doRemoveHeaders: function() {
-        var me = this,
-            headerClsShortCache = me.headerItemClsShortCache,
-            existingHeaders = me.element.query(me.headerClsCache),
-            existingHeadersLn = existingHeaders.length,
-            i = 0,
-            item;
-
-        for (; i < existingHeadersLn; i++) {
-            item = existingHeaders[i];
-            Ext.fly(item.parentNode).removeCls(headerClsShortCache);
-            Ext.removeNode(item);
-        }
-    },
-
-    doRemoveFooterCls: function() {
-        var me = this,
-            footerClsShortCache = me.footerClsShortCache,
-            existingFooters = me.element.query(me.footerClsCache),
-            existingFootersLn = existingFooters.length,
-            i = 0;
-
-        for (; i < existingFootersLn; i++) {
-            Ext.fly(existingFooters[i]).removeCls(footerClsShortCache);
-        }
-    },
-
-    doAddHeader: function(item, html) {
-        item = Ext.fly(item);
-        if (html) {
-            item.insertFirst(Ext.Element.create({
-                cls: this.headerClsShortCache,
-                html: html
-            }));
-        }
-        item.addCls(this.headerItemClsShortCache);
-    },
-
-    destroy: function() {
-        this.doRemoveHeaders();
-        this.callParent();
-    }
-});
-
-/**
  * @aside guide forms
  *
  * Field is the base class for all form fields used in Sencha Touch. It provides a lot of shared functionality to all
@@ -33103,6 +33253,213 @@ Ext.define('Ext.field.Password', {
         component: {
 	        type: 'password'
 	    }
+    }
+});
+
+/**
+ * @aside guide forms
+ *
+ * The Email field creates an HTML5 email input and is usually created inside a form. Because it creates an HTML email
+ * input field, most browsers will show a specialized virtual keyboard for email address input. Aside from that, the
+ * email field is just a normal text field. Here's an example of how to use it in a form:
+ *
+ *     @example
+ *     Ext.create('Ext.form.Panel', {
+ *         fullscreen: true,
+ *         items: [
+ *             {
+ *                 xtype: 'fieldset',
+ *                 title: 'Register',
+ *                 items: [
+ *                     {
+ *                         xtype: 'emailfield',
+ *                         label: 'Email',
+ *                         name: 'email'
+ *                     },
+ *                     {
+ *                         xtype: 'passwordfield',
+ *                         label: 'Password',
+ *                         name: 'password'
+ *                     }
+ *                 ]
+ *             }
+ *         ]
+ *     });
+ *
+ * Or on its own, outside of a form:
+ *
+ *     Ext.create('Ext.field.Email', {
+ *         label: 'Email address',
+ *         value: 'prefilled@email.com'
+ *     });
+ *
+ * Because email field inherits from {@link Ext.field.Text textfield} it gains all of the functionality that text fields
+ * provide, including getting and setting the value at runtime, validations and various events that are fired as the
+ * user interacts with the component. Check out the {@link Ext.field.Text} docs to see the additional functionality
+ * available.
+ */
+Ext.define('Ext.field.Email', {
+    extend: 'Ext.field.Text',
+    alternateClassName: 'Ext.form.Email',
+    xtype: 'emailfield',
+
+    config: {
+        /**
+         * @cfg
+         * @inheritdoc
+         */
+        component: {
+	        type: 'email'
+	    },
+
+        /**
+         * @cfg
+         * @inheritdoc
+         */
+        autoCapitalize: false
+    }
+});
+
+
+
+
+
+
+/**
+ * @aside guide forms
+ *
+ * Hidden fields allow you to easily inject additional data into a {@link Ext.form.Panel form} without displaying
+ * additional fields on the screen. This is often useful for sending dynamic or previously collected data back to the
+ * server in the same request as the normal form submission. For example, here is how we might set up a form to send
+ * back a hidden userId field:
+ *
+ *     @example
+ *     var form = Ext.create('Ext.form.Panel', {
+ *         fullscreen: true,
+ *         items: [
+ *             {
+ *                 xtype: 'fieldset',
+ *                 title: 'Enter your name',
+ *                 items: [
+ *                     {
+ *                         xtype: 'hiddenfield',
+ *                         name: 'userId',
+ *                         value: 123
+ *                     },
+ *                     {
+ *                         xtype: 'checkboxfield',
+ *                         label: 'Enable notifications',
+ *                         name: 'notifications'
+ *                     }
+ *                 ]
+ *             }
+ *         ]
+ *     });
+ *
+ * In the form above we created two fields - a hidden field and a {@link Ext.field.Checkbox check box field}. Only the
+ * check box will be visible, but both fields will be submitted. Hidden fields cannot be tabbed to - they are removed
+ * from the tab index so when your user taps the next/previous field buttons the hidden field is skipped over.
+ *
+ * It's easy to read and update the value of a hidden field within a form. Using the example above, we can get a
+ * reference to the hidden field and then set it to a new value in 2 lines of code:
+ *
+ *     var userId = form.down('hiddenfield')[0];
+ *     userId.setValue(1234);
+ */
+Ext.define('Ext.field.Hidden', {
+    extend: 'Ext.field.Text',
+    alternateClassName: 'Ext.form.Hidden',
+    xtype: 'hiddenfield',
+
+    config: {
+        /**
+         * @cfg
+         * @inheritdoc
+         */
+        component: {
+            xtype: 'input',
+            type : 'hidden'
+        },
+
+        /**
+         * @cfg
+         * @inheritdoc
+         */
+        ui: 'hidden',
+
+        /**
+         * @cfg hidden
+         * @hide
+         */
+        hidden: true,
+
+        /**
+         * @cfg {Number} tabIndex
+         * @hide
+         */
+        tabIndex: -1
+    }
+});
+
+/**
+ * @aside guide forms
+ *
+ * The Search field creates an HTML5 search input and is usually created inside a form. Because it creates an HTML
+ * search input type, the visual styling of this input is slightly different to normal text input contrls (the corners
+ * are rounded), though the virtual keyboard displayed by the operating system is the standard keyboard control.
+ *
+ * As with all other form fields in Sencha Touch, the search field gains a "clear" button that appears whenever there
+ * is text entered into the form, and which removes that text when tapped.
+ *
+ *     @example
+ *     Ext.create('Ext.form.Panel', {
+ *         fullscreen: true,
+ *         items: [
+ *             {
+ *                 xtype: 'fieldset',
+ *                 title: 'Search',
+ *                 items: [
+ *                     {
+ *                         xtype: 'searchfield',
+ *                         label: 'Query',
+ *                         name: 'query'
+ *                     }
+ *                 ]
+ *             }
+ *         ]
+ *     });
+ *
+ * Or on its own, outside of a form:
+ *
+ *     Ext.create('Ext.field.Search', {
+ *         label: 'Search:',
+ *         value: 'query'
+ *     });
+ *
+ * Because search field inherits from {@link Ext.field.Text textfield} it gains all of the functionality that text
+ * fields provide, including getting and setting the value at runtime, validations and various events that are fired
+ * as the user interacts with the component. Check out the {@link Ext.field.Text} docs to see the additional
+ * functionality available.
+ */
+Ext.define('Ext.field.Search', {
+    extend: 'Ext.field.Text',
+    xtype: 'searchfield',
+    alternateClassName: 'Ext.form.Search',
+
+    config: {
+        /**
+         * @cfg
+         * @inheritdoc
+         */
+        component: {
+	        type: 'search'
+	    },
+
+        /**
+         * @cfg
+         * @inheritdoc
+         */
+	    ui: 'search'
     }
 });
 
@@ -36340,6 +36697,211 @@ Ext.define('Ext.data.StoreManager', {
 
 /**
  * @private
+*/
+Ext.define('Ext.dataview.element.List', {
+    extend: 'Ext.dataview.element.Container',
+
+    updateBaseCls: function(newBaseCls) {
+        var me = this;
+
+        me.itemClsShortCache = newBaseCls + '-item';
+
+        me.headerClsShortCache = newBaseCls + '-header';
+        me.headerClsCache = '.' + me.headerClsShortCache;
+
+        me.headerItemClsShortCache = newBaseCls + '-header-item';
+
+        me.footerClsShortCache = newBaseCls + '-footer-item';
+        me.footerClsCache = '.' + me.footerClsShortCache;
+
+        me.labelClsShortCache = newBaseCls + '-item-label';
+        me.labelClsCache = '.' + me.labelClsShortCache;
+
+        me.disclosureClsShortCache = newBaseCls + '-disclosure';
+        me.disclosureClsCache = '.' + me.disclosureClsShortCache;
+
+        me.iconClsShortCache = newBaseCls + '-icon';
+        me.iconClsCache = '.' + me.iconClsShortCache;
+
+        this.callParent(arguments);
+    },
+
+    hiddenDisplayCache: Ext.baseCSSPrefix + 'hidden-display',
+
+    getItemElementConfig: function(index, data) {
+        var me = this,
+            dataview = me.dataview,
+            itemCls = dataview.getItemCls(),
+            cls = me.itemClsShortCache,
+            config, iconSrc;
+
+        if (itemCls) {
+            cls += ' ' + itemCls;
+        }
+
+        config = {
+            cls: cls,
+            children: [{
+                cls: me.labelClsShortCache,
+                html: dataview.getItemTpl().apply(data)
+            }]
+        };
+
+        if (dataview.getIcon()) {
+            iconSrc = data.iconSrc;
+            config.children.push({
+                cls: me.iconClsShortCache,
+                style: 'background-image: ' + iconSrc ? 'url("' + newSrc + '")' : ''
+            });
+        }
+
+        if (dataview.getOnItemDisclosure()) {
+            config.children.push({
+                cls: me.disclosureClsShortCache + ' ' + ((data[dataview.getDisclosureProperty()] === false) ? me.hiddenDisplayCache : '')
+            });
+        }
+        return config;
+    },
+
+    updateListItem: function(record, item) {
+        var me = this,
+            dataview = me.dataview,
+            extItem = Ext.fly(item),
+            innerItem = extItem.down(me.labelClsCache, true),
+            data = dataview.prepareData(record.getData(true), dataview.getStore().indexOf(record), record),
+            disclosureProperty = dataview.getDisclosureProperty(),
+            hasDisclosureProperty = data && data.hasOwnProperty(disclosureProperty),
+            iconSrc = data && data.hasOwnProperty('iconSrc'),
+            disclosureEl, iconEl;
+
+        innerItem.innerHTML = dataview.getItemTpl().apply(data);
+
+        if (hasDisclosureProperty) {
+            disclosureEl = extItem.down(me.disclosureClsCache);
+            disclosureEl[data[disclosureProperty] === false ? 'removeCls' : 'addCls'](me.hiddenDisplayCache);
+        }
+
+        if (dataview.getIcon()) {
+            iconEl = extItem.down(me.iconClsCache, true);
+            iconEl.style.backgroundImage = iconSrc ? 'url("' + iconSrc + '")' : '';
+        }
+    },
+
+    doRemoveHeaders: function() {
+        var me = this,
+            headerClsShortCache = me.headerItemClsShortCache,
+            existingHeaders = me.element.query(me.headerClsCache),
+            existingHeadersLn = existingHeaders.length,
+            i = 0,
+            item;
+
+        for (; i < existingHeadersLn; i++) {
+            item = existingHeaders[i];
+            Ext.fly(item.parentNode).removeCls(headerClsShortCache);
+            Ext.removeNode(item);
+        }
+    },
+
+    doRemoveFooterCls: function() {
+        var me = this,
+            footerClsShortCache = me.footerClsShortCache,
+            existingFooters = me.element.query(me.footerClsCache),
+            existingFootersLn = existingFooters.length,
+            i = 0;
+
+        for (; i < existingFootersLn; i++) {
+            Ext.fly(existingFooters[i]).removeCls(footerClsShortCache);
+        }
+    },
+
+    doAddHeader: function(item, html) {
+        item = Ext.fly(item);
+        if (html) {
+            item.insertFirst(Ext.Element.create({
+                cls: this.headerClsShortCache,
+                html: html
+            }));
+        }
+        item.addCls(this.headerItemClsShortCache);
+    },
+
+    destroy: function() {
+        this.doRemoveHeaders();
+        this.callParent();
+    }
+});
+
+/**
+ * @author Ed Spencer
+ * @class Ext.data.Errors
+ * @extends Ext.util.Collection
+ *
+ * <p>Wraps a collection of validation error responses and provides convenient functions for
+ * accessing and errors for specific fields.</p>
+ *
+ * <p>Usually this class does not need to be instantiated directly - instances are instead created
+ * automatically when {@link Ext.data.Model#validate validate} on a model instance:</p>
+ *
+<pre><code>
+//validate some existing model instance - in this case it returned 2 failures messages
+var errors = myModel.validate();
+
+errors.isValid(); //false
+
+errors.length; //2
+errors.getByField('name');  // [{field: 'name',  message: 'must be present'}]
+errors.getByField('title'); // [{field: 'title', message: 'is too short'}]
+</code></pre>
+ */
+Ext.define('Ext.data.Errors', {
+    extend: 'Ext.util.Collection',
+
+    requires: 'Ext.data.Error',
+
+    /**
+     * Returns true if there are no errors in the collection
+     * @return {Boolean}
+     */
+    isValid: function() {
+        return this.length === 0;
+    },
+
+    /**
+     * Returns all of the errors for the given field
+     * @param {String} fieldName The field to get errors for
+     * @return {Object[]} All errors for the given field
+     */
+    getByField: function(fieldName) {
+        var errors = [],
+            error, i;
+
+        for (i = 0; i < this.length; i++) {
+            error = this.items[i];
+
+            if (error.getField() == fieldName) {
+                errors.push(error);
+            }
+        }
+
+        return errors;
+    },
+    
+    add: function() {
+        var obj = arguments.length == 1 ? arguments[0] : arguments[1];
+        
+        if (!(obj instanceof Ext.data.Error)) {
+            obj = Ext.create('Ext.data.Error', {
+                field: obj.field || obj.name,
+                message: obj.error || obj.message
+            });
+        }
+        
+        return this.callParent([obj]);
+    }
+});
+
+/**
+ * @private
  */
 Ext.define('Ext.dataview.component.Container', {
     extend: 'Ext.Container',
@@ -38248,75 +38810,6 @@ Ext.define('Ext.dataview.List', {
     destroy: function() {
         Ext.destroy(this.getIndexBar(), this.indexBarElement, this.header);
         this.callParent();
-    }
-});
-
-/**
- * @author Ed Spencer
- * @class Ext.data.Errors
- * @extends Ext.util.Collection
- *
- * <p>Wraps a collection of validation error responses and provides convenient functions for
- * accessing and errors for specific fields.</p>
- *
- * <p>Usually this class does not need to be instantiated directly - instances are instead created
- * automatically when {@link Ext.data.Model#validate validate} on a model instance:</p>
- *
-<pre><code>
-//validate some existing model instance - in this case it returned 2 failures messages
-var errors = myModel.validate();
-
-errors.isValid(); //false
-
-errors.length; //2
-errors.getByField('name');  // [{field: 'name',  message: 'must be present'}]
-errors.getByField('title'); // [{field: 'title', message: 'is too short'}]
-</code></pre>
- */
-Ext.define('Ext.data.Errors', {
-    extend: 'Ext.util.Collection',
-
-    requires: 'Ext.data.Error',
-
-    /**
-     * Returns true if there are no errors in the collection
-     * @return {Boolean}
-     */
-    isValid: function() {
-        return this.length === 0;
-    },
-
-    /**
-     * Returns all of the errors for the given field
-     * @param {String} fieldName The field to get errors for
-     * @return {Object[]} All errors for the given field
-     */
-    getByField: function(fieldName) {
-        var errors = [],
-            error, i;
-
-        for (i = 0; i < this.length; i++) {
-            error = this.items[i];
-
-            if (error.getField() == fieldName) {
-                errors.push(error);
-            }
-        }
-
-        return errors;
-    },
-    
-    add: function() {
-        var obj = arguments.length == 1 ? arguments[0] : arguments[1];
-        
-        if (!(obj instanceof Ext.data.Error)) {
-            obj = Ext.create('Ext.data.Error', {
-                field: obj.field || obj.name,
-                message: obj.error || obj.message
-            });
-        }
-        
-        return this.callParent([obj]);
     }
 });
 
@@ -48399,963 +48892,1286 @@ selectBox.setOptions(
     }
 });
 
-/**
-A date picker component which shows a Date Picker on the screen. This class extends from {@link Ext.picker.Picker}
-and {@link Ext.Sheet} so it is a popup.
-
-This component has no required configurations.
-
-## Examples
-
-    @example miniphone preview
-    var datePicker = Ext.create('Ext.picker.Date');
-    Ext.Viewport.add(datePicker);
-    datePicker.show();
-
-You may want to adjust the {@link #yearFrom} and {@link #yearTo} properties:
-
-    @example miniphone preview
-    var datePicker = Ext.create('Ext.picker.Date', {
-        yearFrom: 2000,
-        yearTo  : 2015
-    });
-    Ext.Viewport.add(datePicker);
-    datePicker.show();
-
-You can set the value of the {@link Ext.picker.Date} to the current date using `new Date()`:
-
-    @example miniphone preview
-    var datePicker = Ext.create('Ext.picker.Date', {
-        value: new Date()
-    });
-    Ext.Viewport.add(datePicker);
-    datePicker.show();
-
-And you can hide the titles from each of the slots by using the {@link #useTitles} configuration:
-
-    @example miniphone preview
-    var datePicker = Ext.create('Ext.picker.Date', {
-        useTitles: false
-    });
-    Ext.Viewport.add(datePicker);
-    datePicker.show();
-
- */
-Ext.define('Ext.picker.Date', {
-    extend: 'Ext.picker.Picker',
-    xtype: 'datepicker',
-    alternateClassName: 'Ext.DatePicker',
-    requires: ['Ext.DateExtras'],
-
-    /**
-     * @event change
-     * Fired when the value of this picker has changed and the done button is pressed.
-     * @param {Ext.picker.Date} this This Picker
-     * @param {Date} value The date value
-     */
+Ext.define('GPSName.model.Tags', {
+    extend: 'Ext.data.Model',
 
     config: {
-        /**
-         * @cfg {Number} yearFrom
-         * The start year for the date picker.
-         * @accessor
-         */
-        yearFrom: 1980,
-
-        /**
-         * @cfg {Number} yearTo
-         * The last year for the date picker.
-         * @default the current year (new Date().getFullYear())
-         * @accessor
-         */
-        yearTo: new Date().getFullYear(),
-
-        /**
-         * @cfg {String} monthText
-         * The label to show for the month column.
-         * @accessor
-         */
-        monthText: 'Month',
-
-        /**
-         * @cfg {String} dayText
-         * The label to show for the day column.
-         * @accessor
-         */
-        dayText: 'Day',
-
-        /**
-         * @cfg {String} yearText
-         * The label to show for the year column.
-         * @accessor
-         */
-        yearText: 'Year',
-
-        /**
-         * @cfg {Array} slotOrder
-         * An array of strings that specifies the order of the slots.
-         * @accessor
-         */
-        slotOrder: ['month', 'day', 'year']
-
-        /**
-         * @cfg {Object/Date} value
-         * Default value for the field and the internal {@link Ext.picker.Date} component. Accepts an object of 'year',
-         * 'month' and 'day' values, all of which should be numbers, or a {@link Date}.
-         *
-         * Examples:
-         * {year: 1989, day: 1, month: 5} = 1st May 1989.
-         * new Date() = current date
-         * @accessor
-         */
-
-        /**
-         * @cfg {Array} slots
-         * @hide
-         * @accessor
-         */
-    },
-
-    initialize: function() {
-        this.callParent();
-
-        this.on({
-            scope: this,
-            delegate: '> slot',
-            slotpick: this.onSlotPick
-        });
-    },
-
-    setValue: function(value, animated) {
-        if (Ext.isDate(value)) {
-            value = {
-                day  : value.getDate(),
-                month: value.getMonth() + 1,
-                year : value.getFullYear()
-            };
-        }
-
-        this.callParent([value, animated]);
-    },
-
-    getValue: function(useDom) {
-        var values = {},
-            items = this.getItems().items,
-            ln = items.length,
-            daysInMonth, day, month, year, item, i;
-
-        for (i = 0; i < ln; i++) {
-            item = items[i];
-            if (item instanceof Ext.picker.Slot) {
-                values[item.getName()] = item.getValue(useDom);
-            }
-        }
-
-        //if all the slots return null, we should not reutrn a date
-        if (values.year === null && values.month === null && values.day === null) {
-            return null;
-        }
-
-        year = Ext.isNumber(values.year) ? values.year : 1;
-        month = Ext.isNumber(values.month) ? values.month : 1;
-        day = Ext.isNumber(values.day) ? values.day : 1;
-
-        if (month && year && month && day) {
-            daysInMonth = this.getDaysInMonth(month, year);
-        }
-        day = (daysInMonth) ? Math.min(day, daysInMonth): day;
-
-        return new Date(year, month - 1, day);
-    },
-
-    /**
-     * Updates the yearFrom configuration
-     */
-    updateYearFrom: function() {
-        if (this.initialized) {
-            this.createSlots();
-        }
-    },
-
-    /**
-     * Updates the yearTo configuration
-     */
-    updateYearTo: function() {
-        if (this.initialized) {
-            this.createSlots();
-        }
-    },
-
-    /**
-     * Updates the monthText configuration
-     */
-    updateMonthText: function(newMonthText, oldMonthText) {
-        var innerItems = this.getInnerItems,
-            ln = innerItems.length,
-            item, i;
-
-        //loop through each of the current items and set the title on the correct slice
-        if (this.initialized) {
-            for (i = 0; i < ln; i++) {
-                item = innerItems[i];
-
-                if ((typeof item.title == "string" && item.title == oldMonthText) || (item.title.html == oldMonthText)) {
-                    item.setTitle(newMonthText);
-                }
-            }
-        }
-    },
-
-    /**
-     * Updates the dayText configuraton
-     */
-    updateDayText: function(newDayText, oldDayText) {
-        var innerItems = this.getInnerItems,
-            ln = innerItems.length,
-            item, i;
-
-        //loop through each of the current items and set the title on the correct slice
-        if (this.initialized) {
-            for (i = 0; i < ln; i++) {
-                item = innerItems[i];
-
-                if ((typeof item.title == "string" && item.title == oldDayText) || (item.title.html == oldDayText)) {
-                    item.setTitle(newDayText);
-                }
-            }
-        }
-    },
-
-    /**
-     * Updates the yearText configuration
-     */
-    updateYearText: function(yearText) {
-        var innerItems = this.getInnerItems,
-            ln = innerItems.length,
-            item, i;
-
-        //loop through each of the current items and set the title on the correct slice
-        if (this.initialized) {
-            for (i = 0; i < ln; i++) {
-                item = innerItems[i];
-
-                if (item.title == this.yearText) {
-                    item.setTitle(yearText);
-                }
-            }
-        }
-    },
-
-    // @private
-    constructor: function() {
-        this.callParent(arguments);
-        this.createSlots();
-    },
-
-    /**
-     * Generates all slots for all years specified by this component, and then sets them on the component
-     * @private
-     */
-    createSlots: function() {
-        var me        = this,
-            slotOrder = this.getSlotOrder(),
-            yearsFrom = me.getYearFrom(),
-            yearsTo   = me.getYearTo(),
-            years     = [],
-            days      = [],
-            months    = [],
-            ln, tmp, i,
-            daysInMonth;
-
-        // swap values if user mixes them up.
-        if (yearsFrom > yearsTo) {
-            tmp = yearsFrom;
-            yearsFrom = yearsTo;
-            yearsTo = tmp;
-        }
-
-        for (i = yearsFrom; i <= yearsTo; i++) {
-            years.push({
-                text: i,
-                value: i
-            });
-        }
-
-        daysInMonth = this.getDaysInMonth(1, new Date().getFullYear());
-
-        for (i = 0; i < daysInMonth; i++) {
-            days.push({
-                text: i + 1,
-                value: i + 1
-            });
-        }
-
-        for (i = 0, ln = Ext.Date.monthNames.length; i < ln; i++) {
-            months.push({
-                text: Ext.Date.monthNames[i],
-                value: i + 1
-            });
-        }
-
-        var slots = [];
-
-        slotOrder.forEach(function(item) {
-            slots.push(this.createSlot(item, days, months, years));
-        }, this);
-
-        me.setSlots(slots);
-    },
-
-    /**
-     * Returns a slot config for a specified date.
-     * @private
-     */
-    createSlot: function(name, days, months, years) {
-        switch (name) {
-            case 'year':
-                return {
-                    name: 'year',
-                    align: 'center',
-                    data: years,
-                    title: this.getYearText(),
-                    flex: 3
-                };
-            case 'month':
-                return {
-                    name: name,
-                    align: 'right',
-                    data: months,
-                    title: this.getMonthText(),
-                    flex: 4
-                };
-            case 'day':
-                return {
-                    name: 'day',
-                    align: 'center',
-                    data: days,
-                    title: this.getDayText(),
-                    flex: 2
-                };
-        }
-    },
-
-    onSlotPick: function() {
-        var value = this.getValue(true),
-            slot = this.getDaySlot(),
-            year = value.getFullYear(),
-            month = value.getMonth(),
-            days = [],
-            daysInMonth, i;
-
-        if (!value || !Ext.isDate(value) || !slot) {
-            return;
-        }
-
-        //get the new days of the month for this new date
-        daysInMonth = this.getDaysInMonth(month + 1, year);
-        for (i = 0; i < daysInMonth; i++) {
-            days.push({
-                text: i + 1,
-                value: i + 1
-            });
-        }
-
-        // We dont need to update the slot days unless it has changed
-        if (slot.getData().length == days.length) {
-            return;
-        }
-
-        // Now we have the correct amounnt of days for the day slot, lets update it
-        var store = slot.getStore(),
-            viewItems = slot.getViewItems(),
-            valueField = slot.getValueField(),
-            index, item;
-
-        slot.setData(days);
-
-        index = store.find(valueField, value.getDate());
-        if (index == -1) {
-            return;
-        }
-
-        item = Ext.get(viewItems[index]);
-
-        slot.selectedIndex = index;
-        slot.scrollToItem(item);
-
-//        slot._value = value;
-    },
-
-    getDaySlot: function() {
-        var innerItems = this.getInnerItems(),
-            ln = innerItems.length,
-            i, slot;
-
-        if (this.daySlot) {
-            return this.daySlot;
-        }
-
-        for (i = 0; i < ln; i++) {
-            slot = innerItems[i];
-            if (slot.isSlot && slot.getName() == "day") {
-                this.daySlot = slot;
-                return slot;
-            }
-        }
-
-        return null;
-    },
-
-    // @private
-    getDaysInMonth: function(month, year) {
-        var daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-        return month == 2 && this.isLeapYear(year) ? 29 : daysInMonth[month-1];
-    },
-
-    // @private
-    isLeapYear: function(year) {
-        return !!((year & 3) === 0 && (year % 100 || (year % 400 === 0 && year)));
-    },
-
-    onDoneButtonTap: function() {
-        var oldValue = this._value,
-            newValue = this.getValue(true),
-            testValue = newValue;
-
-        if (Ext.isDate(newValue)) {
-            testValue = newValue.toDateString();
-        }
-        if (Ext.isDate(oldValue)) {
-            oldValue = oldValue.toDateString();
-        }
-
-        if (testValue != oldValue) {
-            this.fireEvent('change', this, newValue);
-        }
-
-        this.hide();
-    }
-});
-
-/**
- * @aside guide forms
- *
- * This is a specialized field which shows a {@link Ext.picker.Date} when tapped. If it has a predefined value,
- * or a value is selected in the {@link Ext.picker.Date}, it will be displayed like a normal {@link Ext.field.Text}
- * (but not selectable/changable).
- *
- *     Ext.create('Ext.field.DatePicker', {
- *         label: 'Birthday',
- *         value: new Date()
- *     });
- *
- * {@link Ext.field.DatePicker} fields are very simple to implement, and have no required configurations.
- *
- * ## Examples
- *
- * It can be very useful to set a default {@link #value} configuration on {@link Ext.field.DatePicker} fields. In
- * this example, we set the {@link #value} to be the current date. You can also use the {@link #setValue} method to
- * update the value at any time.
- *
- *     @example miniphone preview
- *     Ext.create('Ext.form.Panel', {
- *         fullscreen: true,
- *         items: [
- *             {
- *                 xtype: 'fieldset',
- *                 items: [
- *                     {
- *                         xtype: 'datepickerfield',
- *                         label: 'Birthday',
- *                         name: 'birthday',
- *                         value: new Date()
- *                     }
- *                 ]
- *             },
- *             {
- *                 xtype: 'toolbar',
- *                 docked: 'bottom',
- *                 items: [
- *                     { xtype: 'spacer' },
- *                     {
- *                         text: 'setValue',
- *                         handler: function() {
- *                             var datePickerField = Ext.ComponentQuery.query('datepickerfield')[0];
- *
- *                             var randomNumber = function(from, to) {
- *                                 return Math.floor(Math.random() * (to - from + 1) + from);
- *                             };
- *
- *                             datePickerField.setValue({
- *                                 month: randomNumber(0, 11),
- *                                 day  : randomNumber(0, 28),
- *                                 year : randomNumber(1980, 2011)
- *                             });
- *                         }
- *                     },
- *                     { xtype: 'spacer' }
- *                 ]
- *             }
- *         ]
- *     });
- *
- * When you need to retrieve the date from the {@link Ext.field.DatePicker}, you can either use the {@link #getValue} or
- * {@link #getFormattedValue} methods:
- *
- *     @example preview
- *     Ext.create('Ext.form.Panel', {
- *         fullscreen: true,
- *         items: [
- *             {
- *                 xtype: 'fieldset',
- *                 items: [
- *                     {
- *                         xtype: 'datepickerfield',
- *                         label: 'Birthday',
- *                         name: 'birthday',
- *                         value: new Date()
- *                     }
- *                 ]
- *             },
- *             {
- *                 xtype: 'toolbar',
- *                 docked: 'bottom',
- *                 items: [
- *                     {
- *                         text: 'getValue',
- *                         handler: function() {
- *                             var datePickerField = Ext.ComponentQuery.query('datepickerfield')[0];
- *                             Ext.Msg.alert(null, datePickerField.getValue());
- *                         }
- *                     },
- *                     { xtype: 'spacer' },
- *                     {
- *                         text: 'getFormattedValue',
- *                         handler: function() {
- *                             var datePickerField = Ext.ComponentQuery.query('datepickerfield')[0];
- *                             Ext.Msg.alert(null, datePickerField.getFormattedValue());
- *                         }
- *                     }
- *                 ]
- *             }
- *         ]
- *     });
- *
- *
- */
-Ext.define('Ext.field.DatePicker', {
-    extend: 'Ext.field.Text',
-    alternateClassName: 'Ext.form.DatePicker',
-    xtype: 'datepickerfield',
-    requires: [
-        'Ext.picker.Date',
-        'Ext.DateExtras'
-    ],
-
-    /**
-     * @event change
-     * Fires when a date is selected
-     * @param {Ext.field.DatePicker} this
-     * @param {Date} date The new date
-     */
-
-    config: {
-        ui: 'select',
-
-        /**
-         * @cfg {Object/Ext.picker.Date} picker
-         * An object that is used when creating the internal {@link Ext.picker.Date} component or a direct instance of {@link Ext.picker.Date}
-         * Defaults to true
-         * @accessor
-         */
-        picker: true,
-
-        /**
-         * @cfg {Boolean}
-         * @hide
-         * @accessor
-         */
-        clearIcon: false,
-
-        /**
-         * @cfg {Object/Date} value
-         * Default value for the field and the internal {@link Ext.picker.Date} component. Accepts an object of 'year',
-         * 'month' and 'day' values, all of which should be numbers, or a {@link Date}.
-         *
-         * Example: {year: 1989, day: 1, month: 5} = 1st May 1989 or new Date()
-         * @accessor
-         */
-
-        /**
-         * @cfg {Boolean} destroyPickerOnHide
-         * Whether or not to destroy the picker widget on hide. This save memory if it's not used frequently,
-         * but increase delay time on the next show due to re-instantiation. Defaults to false
-         * @accessor
-         */
-        destroyPickerOnHide: false,
-
-        /**
-         * @cfg {String} dateFormat The format to be used when displaying the date in this field.
-         * Accepts any valid date format. You can view formats over in the {@link Ext.Date} documentation.
-         * Defaults to `Ext.util.Format.defaultDateFormat`.
-         */
-        dateFormat: null,
-
-        /**
-         * @cfg {Object}
-         * @hide
-         */
-        component: {
-            useMask: true
-        }
-    },
-
-    initialize: function() {
-        this.callParent();
-
-        this.getComponent().on({
-            scope: this,
-            masktap: 'onMaskTap'
-        });
-
-        this.getComponent().input.dom.disabled = true;
-    },
-
-    syncEmptyCls: Ext.emptyFn,
-
-    applyValue: function(value) {
-        if (!Ext.isDate(value) && !Ext.isObject(value)) {
-            return null;
-        }
-
-        if (Ext.isObject(value)) {
-            return new Date(value.year, value.month - 1, value.day);
-        }
-
-        return value;
-    },
-
-    updateValue: function(newValue) {
-        var picker = this._picker;
-        if (picker && picker.isPicker) {
-            picker.setValue(newValue);
-        }
-
-        // Ext.Date.format expects a Date
-        if (newValue !== null) {
-            this.getComponent().setValue(Ext.Date.format(newValue, this.getDateFormat() || Ext.util.Format.defaultDateFormat));
-        } else {
-            this.getComponent().setValue('');
-        }
-
-        if (this._picker && this._picker instanceof Ext.picker.Date) {
-            this._picker.setValue(newValue);
-        }
-    },
-
-    /**
-     * Updates the date format in the field.
-     * @private
-     */
-    updateDateFormat: function(newDateFormat, oldDateFormat) {
-        var value = this.getValue();
-        if (newDateFormat != oldDateFormat && Ext.isDate(value)) {
-            this.getComponent().setValue(Ext.Date.format(value, newDateFormat || Ext.util.Format.defaultDateFormat));
-        }
-    },
-
-    /**
-     * Returns the {@link Date} value of this field.
-     * If you wanted a formated date
-     * @return {Date} The date selected
-     */
-    getValue: function() {
-        if (this._picker && this._picker instanceof Ext.picker.Date) {
-            return this._picker.getValue();
-        }
-
-        return this._value;
-    },
-
-    /**
-     * Returns the value of the field formatted using the specified format. If it is not specified, it will default to
-     * {@link #dateFormat} and then {@link Ext.util.Format#defaultDateFormat}.
-     * @param {String} format The format to be returned
-     * @return {String} The formatted date
-     */
-    getFormattedValue: function(format) {
-        var value = this.getValue();
-        return (Ext.isDate(value)) ? Ext.Date.format(value, format || this.getDateFormat() || Ext.util.Format.defaultDateFormat) : value;
-    },
-
-    applyPicker: function(picker, pickerInstance) {
-        if (pickerInstance && pickerInstance.isPicker) {
-            picker = pickerInstance.setConfig(picker);
-        }
-
-        return picker;
-    },
-
-    getPicker: function() {
-        var picker = this._picker,
-            value = this.getValue();
-
-        if (picker && !picker.isPicker) {
-            picker = Ext.factory(picker, Ext.picker.Date);
-            if (value != null) {
-                picker.setValue(value);
-            }
-        }
-
-        picker.on({
-            scope: this,
-            change: 'onPickerChange',
-            hide  : 'onPickerHide'
-        });
-        Ext.Viewport.add(picker);
-        this._picker = picker;
-
-        return picker;
-    },
-
-    /**
-     * @private
-     * Listener to the tap event of the mask element. Shows the internal DatePicker component when the button has been tapped.
-     */
-    onMaskTap: function() {
-        if (this.getDisabled()) {
-            return false;
-        }
-
-        if (this.getReadOnly()) {
-            return false;
-        }
-
-        this.getPicker().show();
-
-        return false;
-    },
-
-    /**
-     * Called when the picker changes its value
-     * @param {Ext.picker.Date} picker The date picker
-     * @param {Object} value The new value from the date picker
-     * @private
-     */
-    onPickerChange: function(picker, value) {
-        var me = this;
-
-        me.setValue(value);
-        me.fireEvent('change', me, me.getValue());
-    },
-
-    /**
-     * Destroys the picker when it is hidden, if
-     * {@link Ext.field.DatePicker#destroyPickerOnHide destroyPickerOnHide} is set to true
-     * @private
-     */
-    onPickerHide: function() {
-        var picker = this.getPicker();
-        if (this.getDestroyPickerOnHide() && picker) {
-            picker.destroy();
-            this._picker = true;
-        }
-    },
-
-    reset: function() {
-        this.setValue(this.originalValue);
-    },
-
-    // @private
-    destroy: function() {
-        var picker = this._picker;
-
-        if (picker && picker.isPicker) {
-            picker.destroy();
-        }
-
-        this.callParent(arguments);
-    }
-});
-
-Ext.define('GPSLogger.view.Screen1', {
-     extend: 'Ext.Container',
-    id: 'Screen1',
-    xtype:'Screen1',
-    config: {
-        items:[
-            {
-                xtype:'Dives'
-            }
+        fields: [
+            'name',
+            'image'
         ]
-    }  
+    }
 });
-Ext.define('GPSLogger.view.Dives', {
+
+Ext.define('GPSName.view.Locations', {
     extend: 'Ext.List',
     
-    xtype: 'Dives',
-    id: 'diveslist',
+    xtype: 'contacts',
 
     config: {
-            onItemDisclosure:true,
-listeners : {
-  itemtap : function(container,item,index,record){
-  //alert (e.data.name);
- 
-  var application= GPSLogger.app.getController('Application');
-  application.onScreen2(record);
- 
-  }
-},
         items:[
-], 
-        title: 'Dives',
-        cls: 'x-dives',
-        store: 'Logger',
+         {
+                                xtype: 'searchfield',
+                                label: '',
+                                height:'30px',
+                                placeHolder: 'Filter',
+                                id:'searchbox',
+                                align:'center'
+                            }], 
+        title: 'GPSNames',
+        cls: 'x-contacts',
+
+        store: 'Locations',
         itemTpl: [
-            '<div>{name}</div>'
+            '<div class="headshot" style="float:left;width:32px;height:37px;background-image:url({image});"></div>',
+            '{title}',
+            '<div style="font-size:80%;color:grey;">{description}</div>'
         ].join('')
     }
 });
 
-Ext.define('GPSLogger.controller.Application', {
-    extend: 'Ext.app.Controller',
+Ext.define('GPSName.view.Tags', {
+    extend: 'Ext.List',
+    xtype: 'tags',
+    
 
     config: {
-        refs: {
-            // screens
-            Main: 'mainview',
-            // buttons
-            FirstButton: '#FirstButton',
-            SecondButton: '#SecondButton',
-            Screen1Button: '#Screen1Button',
-            Screen2Button: '#Screen2Button',
-            // stores
-            Logger: 'Logger'
+        title: 'GPSNames',
+        cls: 'x-contacts',
+
+        store: 'Tags',
+        
+        scrollable: 'false',
+        
+        listeners:{
+            itemtap: function(view, index, target, record, event){                
+                var value = record.get('name');               
+                var existingvalue=Ext.getCmp('tagged').getValue();
+                var tagged=existingvalue+','+value;
+                tagged=tagged.replace(/(^,)|(,$)/g, "");
+                Ext.getCmp('tagged').setValue(tagged);
+                Ext.getStore('Tags').removeAll();
+            },
             
+            refresh: function () {
+                
+                var items;
+                
+                var component=Ext.getCmp('tags');
+                if (component){
+                items=component.getStore().getCount();
+                component.setHeight(10+items*50+10); 
+                }
+                component=Ext.getCmp('tags_edit');
+                if (component){
+                items=component.getStore().getCount();
+                component.setHeight(10+items*50+10); 
+                }
+                
+            }
+        },
+
+        itemTpl: [
+            '<div class="headshot" style="float:left;width:32px;height:37px;background-image:url({image});"></div>',
+            '{name}'
+        ].join('')
+    }
+});
+
+Ext.define('GPSName.view.Add', {
+    
+	requires: [
+        
+    ],
+	extend: 'Ext.Container',
+    xtype: 'contact-add',
+
+    config: {
+        title: 'Add GPSName',
+        layout: 'fit',
+
+        items: [
+            {
+                
+                xtype: 'formpanel',
+                id:'addform',
+               
+                items: [
+                    {
+                        xtype: 'fieldset',
+                        defaults: {
+                            
+                        },
+                        title: 'Information',
+                        items: [
+                            {
+                                xtype: 'textfield',
+                                label: 'Title',
+                                name: 'title',
+                                maxLength:40
+                            },
+                            {
+                                xtype: 'textfield',
+                                label: 'Description',
+                                name: 'description'
+                            }
+                        ]
+                    },
+                    {
+                        xtype: 'fieldset',
+                        defaults: {
+                           
+                        },
+                        title: 'Location',
+                        layout: {
+                            type:'hbox'
+                        },
+                        items: [
+                            {
+                                xtype: 'textfield',
+                                label: 'Lat',
+                                name: 'lat',
+                                width:'50%',
+                                id: 'lat'
+                            },
+                            {
+                                xtype: 'textfield',
+                                label: 'Lon',
+                                name: 'lon',
+                                width:'50%',
+                                id: 'lon'
+                            }
+                        ]
+                    },
+                     {
+                        xtype: 'fieldset',
+                        layout: 'vbox',
+
+                        defaults: {
+                            
+                        },
+                        title: 'Tag',
+                        items: [
+                            {
+                                xtype: 'textfield',
+                                label: 'Tag Filter',
+                                name: 'tagfilter',
+                                id: 'tagfilter'
+                            },
+                            { xtype: 'tags',
+                              name: 'tags',
+                              id: 'tags',
+                              height:'50'
+                       },
+                     {
+                                xtype: 'textfield',
+                                label: 'Tagged',
+                                name: 'tagged',
+                                id: 'tagged'
+                            },
+                            
+                                                   
+                            {          xtype: 'selectfield',
+                                label: 'Category',
+                                name: 'category',
+                                options: [
+                                    {text: 'Home',  value: 'Home'},
+                                    {text: 'Work', value: 'Work'},
+                                    {text: 'Public Place', value: 'Public Place'},
+                                    {text: 'General', value: 'General'},
+
+                                ]
+                    },
+                    
+                  {          xtype: 'selectfield',
+                                label: 'Who can See?',
+                                name: 'permissions',
+                                options: [
+                                    {text: 'Everyone',  value: '1'},
+                                    {text: 'Other GPSName users', value: '2'},
+                                    {text: 'Connected GPSName users', value: '3'},
+                                    {text: 'Facebook Friends', value: '4'},
+                                    {text: 'Facebook Friends & Connected GPSName Users', value: '5'},
+                                    {text: 'No one', value: '6'},
+                                ]
+                    },
+
+                        ]
+                    },
+
+                     {
+                xtype: 'map',
+                id:'map_add',
+                height: 200,
+                useCurrentLocation: true,
+                             mapOptions: {
+                    zoom: 18,
+                    mapTypeId: google.maps.MapTypeId.SATELLITE,
+                    navigationControl: true,
+                    zoomControl: true,
+                    zoomControlOptions: {
+                        style: google.maps.ZoomControlStyle.SMALL
+                    },
+                    navigationControlOptions: 
+                    {
+                        style: google.maps.NavigationControlStyle.DEFAULT
+                    }
+                }
+                
+            }
+                ]
+            }
+        ], 
+
+        listeners: {
+            delegate: 'textfield',
+            keyup: 'onKeyUp'
+        },
+
+        record: null
+    },
+
+    updateRecord: function(newRecord) {
+        this.down('formpanel').setRecord(newRecord);
+   
+    },
+
+     saveRecord: function() {
+        
+    },
+
+    onKeyUp: function() {
+        this.fireEvent('change', this);
+    },
+    
+    loadGPS: function () {
+        
+        // var socket = io.connect('http://195.234.11.44:8081');
+
+
+        var geo = Ext.create('Ext.util.Geolocation', {
+    autoUpdate: true,
+    listeners: {
+        locationupdate: function(geo) {
+            Ext.getCmp('lat').setValue('' + geo.getLatitude());
+            Ext.getCmp('lon').setValue('' + geo.getLongitude());
+            
+            //socket.emit('updatecharacter',{user:'tester',lat:geo.getLatitude(),lon:geo.getLongitude()});
+
+            
+            /*
+            var myLatLng = new google.maps.LatLng(''+geo.getLatitude(),''+geo.getLongitude());
+            var map = Ext.getCmp('map_add').getMap();
+            var marker = new google.maps.Marker({
+              position: myLatLng,
+              map: map
+          });
+
+            marker.setMap(map);
+            */
+            
+        },
+        locationerror: function(geo, bTimeout, bPermissionDenied, bLocationUnavailable, message) {
+            if(bTimeout){
+                alert('Timeout occurred.');
+            } else {
+                alert('Error occurred.');
+            }
+        }
+    }
+});
+geo.updateLocation();
+    }
+});
+Ext.define('GPSName.view.Edit', {
+    extend: 'Ext.Container',
+    xtype: 'contact-edit',
+
+    config: {
+        layout: {
+            type: 'fit'
+        },
+        items: [
+            {
+                xtype: 'tabpanel',
+                tabBar: {
+                    docked: 'top'
+                },
+                items: [
+                    {
+                
+                xtype: 'formpanel',
+                id: 'editform',
+                title:'Details',
+
+                items: [
+                    {
+                        xtype: 'fieldset',
+  
+                        title: 'Information',
+                        items: [
+                            {
+                                xtype: 'textfield',
+                                label: 'Id',
+                                name: 'id',
+                                hidden: true
+                            },
+                            {
+                                xtype: 'textfield',
+                                label: 'Title',
+                                name: 'title',
+                                id:'title',
+                                maxLength:40
+                            },
+                            {
+                                xtype: 'textfield',
+                                label: 'Description',
+                                name: 'description',
+                                id:'description'
+                            }
+                        ]
+                    },
+                    {
+                        xtype: 'fieldset',
+ 
+                        title: 'Location',
+                        layout: {
+                            type:'hbox'
+                        },
+                        items: [
+                            {
+                                xtype: 'textfield',
+                                label: 'Lat',
+                                name: 'lat',
+                                width:'50%'
+                            },
+                            {
+                                xtype: 'textfield',
+                                label: 'Lon',
+                                name: 'lon',
+                                width:'50%'
+                            }
+                        ]
+                    },
+                     {
+                        xtype: 'fieldset',
+
+                        title: 'Tag',
+                        items: [
+                            {
+                                xtype: 'textfield',
+                                label: 'Tag Filter',
+                                name: 'tagfilter',
+                                id: 'tagfilter'
+                            },
+                            { xtype: 'tags',
+                            id:'tags_edit',
+                            name:'tags_edit',
+                            height:50},
+                     {
+                                xtype: 'textfield',
+                                label: 'Tagged',
+                                name: 'tagged',
+                                id: 'tagged'
+                            },
+                            
+                            {          xtype: 'selectfield',
+                                label: 'Category',
+                                name: 'category',
+                                options: [
+                                    {text: 'Home',  value: 'Home'},
+                                    {text: 'Work', value: 'Work'},
+                                    {text: 'Public Place', value: 'Public Place'},
+                                    {text: 'General', value: 'General'},
+
+                                ]
+                    },
+                            
+                                  {          xtype: 'selectfield',
+                                label: 'Who can See?',
+                                name: 'permissions',
+                                options: [
+                                    {text: 'Everyone',  value: '1'},
+                                    {text: 'Other GPSName users', value: '2'},
+                                    {text: 'Connected GPSName users', value: '3'},
+                                    {text: 'Facebook Friends', value: '4'},
+                                    {text: 'Facebook Friends & Connected GPSName Users', value: '5'},
+                                    {text: 'No one', value: '6'},
+                                ]
+                    },
+
+                        ]
+                    }
+                                    
+                ]
+            }
+                    ,
+                    {
+                xtype: 'map',
+                id: 'map_edit',
+                title:'Map',
+                height: '100%',
+                mapOptions: {
+                    zoom: 18,
+                    navigationControl: true,
+                    zoomControl: true,
+                    zoomControlOptions: {
+                        style: google.maps.ZoomControlStyle.SMALL
+                    },
+                    navigationControlOptions: 
+                    {
+                        style: google.maps.NavigationControlStyle.DEFAULT
+                    }
+                },
+                useCurrentLocation: false
+                
+            }
+                ]
+            }
+        ]
+    },
+    listeners: {
+            delegate: 'textfield',
+            keyup: 'onKeyUp'
+        },
+    updateRecord: function(newRecord) {
+        this.down('formpanel').setRecord(newRecord);
+    },
+    onKeyUp: function() {
+        this.fireEvent('change', this);
+    }
+
+});
+Ext.define('GPSName.view.Show', {
+    extend: 'Ext.List',
+    xtype: 'location-show',
+    config: {
+
+
+        baseCls: 'x-show-location',
+        layout: 'vbox',
+        title:'',
+     
+
+        items: [
+			{
+				xtype: 'component',
+				id: 'content',
+                           
+                tpl: [
+                    '<div style="font-size:100%;padding: 5px;">{description}</div>'
+                ].join('')
+				
+			
+			},
+            {
+                xtype: 'map',
+                height: 200,
+                 mapOptions: {
+                    zoom: 18,
+                    navigationControl: true,
+                    zoomControl: true,
+                    
+                    zoomControlOptions: {
+                        style: google.maps.ZoomControlStyle.SMALL
+                    }
+                 }
+            },
+
+            {
+                xtype: 'formpanel',
+		height:200,
+                scrollable: 'false',
+                items: [
+
+                    {
+                        xtype: 'hiddenfield',
+                        label: 'Id',
+                        id:'gpsnameid'
+                    },
+                    {
+                        xtype: 'emailfield',
+                        label: 'Email',
+                        id:'email_show',
+                        placeHolder: 'email@example.com'
+                    },
+					{
+                        xtype: 'button',
+			ui: 'confirm',
+                        text: 'Send',
+                        handler: function() {
+                            var email=Ext.getCmp('email_show').getValue();
+                            var gpsnameid=Ext.getCmp('gpsnameid').getValue();
+                            /*
+                            Ext.Ajax.request({
+                                url: 'http://www.onebiglink.com/gpsname.com/index.php/feed/email_gpsname',
+                                method: 'post',
+                                params: {email: email,id:gpsnameid},
+                                failure : function(response){
+                                    data = Ext.decode(response.responseText);
+                                    Ext.Msg.alert('Server Response', data.message);
+                                },
+                                success: function(response, opts) {
+                                data = Ext.decode(response.responseText);
+
+                                if (data.result !='OK')
+                                {
+                                    Ext.Msg.alert('Login Error', data.message);
+                                } 
+                                else 
+                                {
+                                    Ext.Msg.alert('Sent Email!','');
+                                    
+                                }
+                                }
+                                });
+                                */
+                                
+                                 Ext.util.JSONP.request({
+            url: 'http://www.onebiglink.com/gpsname.com/index.php/feed/email_gpsname',
+            callbackKey: 'callback',
+            params: {email: email,id:gpsnameid},
+            success: function(response, request) {
+                // Unmask the viewport
+                Ext.Viewport.unmask();
+                    if (response.result !='OK')
+                    {
+                        Ext.Msg.alert('Send Error', response.message);
+                    } 
+                    else 
+                    {
+                        Ext.Msg.alert('Message Sent');
+                    }
+            }
+        });
+                            
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    updateRecord: function(newRecord) {
+        if (newRecord) {
+            this.down('#content').setData(newRecord.data);
+
+            this.down('map').setMapCenter({
+                latitude: newRecord.data.lat,
+                longitude: newRecord.data.lon
+            });
+            
+            var image =  newRecord.data.image;
+
+            var myLatLng = new google.maps.LatLng(newRecord.data.lat,newRecord.data.lon);
+            var map = this.down('map').getMap();
+  
+          var marker = new google.maps.Marker({
+              position: myLatLng,
+              icon: image,
+              map: map
+          });
+
+            marker.setMap(map);
+                }
+            }
+});
+
+Ext.define('GPSName.view.Friends', {
+    extend: 'Ext.List',
+    
+    xtype: 'friends',
+
+    config: {
+        items:[
+         {
+                                xtype: 'searchfield',
+                                label: '',
+                                height:'30px',
+                                placeHolder: 'Filter',
+                                id:'searchbox',
+                                align:'center'
+                            }], 
+        title: 'GPSName Connections',
+        cls: 'x-friends',
+
+        store: 'Locations',
+        itemTpl: [
+            '<div class="headshot" style="float:left;width:32px;height:37px;background-image:url({image});"></div>',
+            '{title}',
+            '<div style="font-size:80%;color:grey;">{description}</div>'
+        ].join('')
+    }
+});
+
+Ext.define('GPSName.view.Settings', {
+    extend: 'Ext.Container',
+    xtype: 'settings-show',
+
+    config: {
+        title: 'Account - v0.9.9',
+        layout: 'fit',
+
+        items: [
+            {
+                
+                xtype: 'formpanel',
+                items: [
+                    {
+                        xtype:'container',
+                        html:'<a href="http://www.gpsname.com/index.php/login/signup">Create Account</a>'
+                    },
+                    {
+                        xtype: 'fieldset',
+   
+                        title: 'Authentication',
+                        items: [
+                            {
+                                xtype: 'textfield',
+                                label: 'Username',
+                                name:  'username',
+                                id: 'username'
+                            },
+                            {
+                                xtype: 'passwordfield',
+                                label: 'Password',
+                                name: 'password',
+                                id: 'password'
+                            }
+                        ]
+                    },
+                                    {
+                            xtype: 'button',
+                            text: 'Update',
+                            ui: 'confirm',
+                            handler: function() {
+                                
+                                var settingsStore = Ext.getStore('Settings');
+                                settingsStore.removeAll();
+                                
+                                var form = this.up('formpanel').getValues();
+                                
+                                gpsname_user=form.username;
+                                gpsname_password=form.password;
+
+                                settingsStore.add(form);
+                                settingsStore.sync(); 
+                                
+
+                                alert ("Settings Updated");
+ 
+                            }
+                        },
+                        {
+                            xtype: 'button',
+                            text: 'Login Now',
+                            ui: 'confirm',
+                            handler: function() {
+                                
+                                var form = this.up('formpanel').getValues();
+                                
+                                gpsname_user=form.username;
+                                gpsname_password=form.password;
+                                var application= GPSName.app.getController('Application');
+                                application.Login(gpsname_user,gpsname_password);
+ 
+                            }
+                        }
+                ]
+            }
+        ],
+
+        listeners: {
+            delegate: 'textfield',
+            keyup: 'onKeyUp'
+        },
+
+        record: null
+    },
+
+    updateRecord: function(newRecord) {
+        this.down('formpanel').setRecord(newRecord);
+    },
+
+    saveRecord: function() {
+        var formPanel = this.down('formpanel'),
+            record = formPanel.getRecord();
+
+        formPanel.updateRecord(record);
+
+        return record;
+    },
+
+    onKeyUp: function() {
+        this.fireEvent('change', this);
+    },
+    loadName: function(username,password){
+        Ext.getCmp('username').setValue('' +username);
+        Ext.getCmp('password').setValue('' +password);
+    }
+});
+
+Ext.define('GPSName.controller.Application', {
+    extend: 'Ext.app.Controller',
+    config: { 
+        refs: {
+            main: 'mainview',
+            editButton: '#editButton',
+            deleteButton: '#deleteButton',
+            contacts: 'contacts',
+            tags: 'tags',
+            showLocation: 'location-show',
+            editContact: 'contact-edit',
+            addContact: 'contact-add',
+            showSettings: 'settings-show',
+            updateButton: '#updateButton',
+            addButton: '#addButton',
+            actionButton: '#actionButton',
+            homeButton: '#homeButton',
+            settingsButton: '#settingsButton',
+            friendsButton: '#friendsButton',
+            searchbox: '#searchbox',
+            tagfilter: '#tagfilter'
         },
 
         control: {
-            Main: {
+            main: {
                 push: 'onMainPush',
                 pop: 'onMainPop'
             },
-            FirstButton: {
-                tap: 'onFirstButton'
+            editButton: {
+                tap: 'onContactEdit'
             },
-            SecondButton: {
-                tap: 'onSecondButton'
+            deleteButton: {
+                tap: 'onLocationDelete'
             },
-            Screen1Button: {
-                tap: 'onScreen1'
+            contacts: {
+                itemtap: 'onContactSelect'
             },
-            Screen2Button: {
-                tap: 'onScreen2'
+            updateButton: {
+                tap: 'onLocationUpdate'
+            },
+            addButton: {
+                tap: 'onLocationAddSave'
+            },
+             addContact: {
+                change: 'onAddContactChange'
+            },
+            editContact: {
+                change: 'onContactChange'
+            },
+             actionButton: {
+                tap: 'onAction'
+            },
+             homeButton: {
+                tap: 'onHome'
+            },
+            settingsButton: {
+                tap: 'onSettings'
+            },
+            friendsButton: {
+                tap: 'onFriends'
+            },
+            searchbox: {
+                keyup: 'onSearchKeyup',
+                clearicontap: 'onSearchKeyup'
+            },
+             tagfilter: {
+                keyup: 'ontagfilterKeyup',
+                clearicontap: 'ontagfilterKeyup'
             }
    
         }
     },
 
+onSearchKeyup: function(field, e) {
+    
+     var store = Ext.getStore('Locations');
+        // clear all existing filters
+        store.clearFilter();
+        store.filter('title', field.getValue()); 
+        
+        var settingsStore = Ext.getStore('Settings');
+        var item = settingsStore.getAt(0);
+        if (item.data.username){
+            gpsname_user=item.data.username;
+        }
+        
+        store.getProxy().setExtraParam('gpsname', gpsname_user);   
+        store.load();
+
+},
+ontagfilterKeyup: function(field, e) {
+Ext.getStore('Tags').load({
+params:{filter: field.getValue()}
+});
+              
+
+
+},
+
     onMainPush: function(view, item) {
-        //alert ("push="+item.xtype);
-        //this.hideFirstButton();
-        this.showSecondButton();
+        //alert("push "+item.xtype);
+        if (item.xtype == "location-show") {
+            this.getContacts().deselectAll();
+
+            this.showEditButton();
+        } else {
+            this.hideEditButton();
+        }
     },
 
     onMainPop: function(view, item) {
-        //alert ("pop="+item.xtype);
-         //this.showFirstButton();
-         this.hideSecondButton();
-    },
+        //alert ("pop "+item.xtype);
         
-    onScreen1: function() {
+        this.hideAddButton();
+        this.hideDeleteButton();
+        
+        
+        if (item.xtype == "location-edit"||item.xtype == "contact-edit") {
+            this.showEditButton();
+        } else {
+            this.hideEditButton();
+            Ext.getCmp('toptoolbar').setTitle('');
+        }
+    },
+
+    onContactSelect: function(list, index, node, record) {
+        var editButton = this.getEditButton();
+
+        if (!this.showContact) {
+            this.showContact = Ext.create('GPSName.view.Show');
+        }
+        // Bind the record onto the show contact view
+        this.showContact.setRecord(record);
+
+        // Push the show contact view into the navigation view
+        this.getMain().push(this.showContact);
+        
+        Ext.getCmp('toptoolbar').setTitle(''+record.data.title);
+        Ext.getCmp('gpsnameid').setValue(''+record.data.id);
+    },
+
+    onContactEdit: function() {
+        if (!this.editContact) {
+            this.editContact = Ext.create('GPSName.view.Edit');
+        }
+        this.showDeleteButton();
+        // Bind the record onto the edit contact view
+        var record=this.getShowLocation().getRecord();
+        
+        this.editContact.setRecord(record);
+      
+        var map = Ext.getCmp('map_edit').getMap();
+        var myLatLng = new google.maps.LatLng(record.data.lat,record.data.lon);
+        map.setCenter(myLatLng, 18);
+        var image =  record.data.image;
+          var marker = new google.maps.Marker({
+              position: myLatLng,
+              icon: image,
+              map: map
+          });
+
+            marker.setMap(map);
+
+        this.getMain().push(this.editContact);
+    },
+    onAddContactChange: function() {
+        this.showAddButton();
+    },
+
+    onContactChange: function() {
+        this.showUpdateButton();
+    },
+
+    onLocationAddSave: function() {
+
+            var formValues = Ext.getCmp('addform').getValues();
+            var model = Ext.ModelMgr.create(formValues,'GPSName.model.Locations');      
+            var errors = model.validate(),message = "";
+            var errorMessage='';
+                if(errors.isValid()){ 
+                    
+                    /*
+                    Ext.Ajax.request({
+                        url: 'http://www.onebiglink.com/gpsname.com/index.php/feed/add_gpsname',
+                        method: 'post',
+                        params: {lat:formValues.lat,lon:formValues.lon,string:formValues.title,description:formValues.description,permissions:formValues.permissions,category:formValues.category,descriptiontags:formValues.tagged},
+                        failure : function(response){
+                        data = Ext.decode(response.responseText);
+
+                        },
+                        success: function(response, opts) {
+                        data = Ext.decode(response.responseText);
+                        if (data.errorMessage != null)
+                        {
+                        }
+                        }
+                    });
+            */
+                    
+                      Ext.util.JSONP.request({
+            url: 'http://www.onebiglink.com/gpsname.com/index.php/feed/add_gpsname',
+            callbackKey: 'callback',
+            params: {lat:formValues.lat,lon:formValues.lon,string:formValues.title,description:formValues.description,permissions:formValues.permissions,category:formValues.category,descriptiontags:formValues.tagged},
+            success: function(response, request) {
+                // Unmask the viewport
+                Ext.Viewport.unmask();
+                    if (response.result !='OK')
+                    {
+                        Ext.Msg.alert('Add Error', response.message);
+                    } 
+                    else 
+                    {
+                        Ext.Msg.alert('Added!','');
+                        
+                    }
+            }
+        });
+            var locationsStore = Ext.getStore('Locations');
+            locationsStore.load();
+                //Ext.Msg.alert('Updated!','');
+            } else { 
+                    errors.each(function (err) {
+
+                    errorMessage += err.getMessage() + '<br/>';
+
+                    /*
+                    if (err.getMessage()=='Enter Tagged'){
+                        Ext.getCmp('tagged').setLabelCls('error');
+                        Ext.getCmp('tagfilter').setLabelCls('error');
+                        Ext.getCmp('tagged').focus()
+                    }
+                    if (err.getMessage()=='Enter Title'){
+                        Ext.getCmp('title').setLabelCls('error');
+                        Ext.getCmp('title').focus()
+                    }
+                    if (err.getMessage()=='Enter Description'){
+                        Ext.getCmp('description').setLabelCls('error');
+                        Ext.getCmp('description').focus()
+                    }
+                    */
+
+                }); // each()
+                Ext.Msg.alert('Form is invalid!', errorMessage);
+            }   
+
+    },
+    
+    onLocationDelete: function () {
+        var formValues = Ext.getCmp('editform').getValues();
+        Ext.util.JSONP.request({
+            url: 'http://www.onebiglink.com/gpsname.com/index.php/feed/delete_gpsname',
+            callbackKey: 'callback',
+            params: {id:formValues.id},
+            success: function(response, request) {
+                // Unmask the viewport
+                Ext.Viewport.unmask();
+                    if (response.result !='OK')
+                    {
+                        Ext.Msg.alert('Delete Error', response.message);
+                    } 
+                    else 
+                    {
+                        Ext.Msg.alert('Deleted!','');     
+                    }
+            }
+        });
+        var locationsStore = Ext.getStore('Locations');
+        locationsStore.load();
         this.getMain().reset();
     },
-    onScreen2: function(record) {
-       if (!this.showScreen2) {
-            this.showScreen2 = Ext.create('GPSLogger.view.Screen2');
-       }   
-       this.getMain().push(this.showScreen2);
-       var form = Ext.getCmp('descriptiondetails');
-       
-       form.setRecord(record);
 
-       
+    onLocationUpdate: function() {
+        
+            var formValues = Ext.getCmp('editform').getValues();
+            var model = Ext.ModelMgr.create(formValues,'GPSName.model.Locations');      
+            var errors = model.validate(),message = "";
+            var errorMessage='';
+                if(errors.isValid()){ 
+                    
+            Ext.util.JSONP.request({
+            url: 'http://www.onebiglink.com/gpsname.com/index.php/feed/update_gpsname',
+            callbackKey: 'callback',
+            params: {id:formValues.id,lat:formValues.lat,lon:formValues.lon,string:formValues.title,description:formValues.description,permissions:formValues.permissions,category:formValues.category,descriptiontags:formValues.tagged},
+            success: function(response, request) {
+                // Unmask the viewport
+                Ext.Viewport.unmask();
+                    if (response.result !='OK')
+                    {
+                        Ext.Msg.alert('Update Error', response.message);
+                    } 
+                    else 
+                    {
+                        Ext.Msg.alert('Updated!','');
+                        
+                    }
+            }
+        });
+            //this.hideUpdateButton();
+            var locationsStore = Ext.getStore('Locations');
+            locationsStore.load();
+                
+            } else { 
+                    errors.each(function (err) {
+
+                    errorMessage += err.getMessage() + '<br/>';
+
+                    /*
+                    if (err.getMessage()=='Enter Tagged'){
+                        Ext.getCmp('tagged').setLabelCls('error');
+                        Ext.getCmp('tagfilter').setLabelCls('error');
+                        Ext.getCmp('tagged').focus()
+                    }
+                    if (err.getMessage()=='Enter Title'){
+                        Ext.getCmp('title').setLabelCls('error');
+                        Ext.getCmp('title').focus()
+                    }
+                    if (err.getMessage()=='Enter Description'){
+                        Ext.getCmp('description').setLabelCls('error');
+                        Ext.getCmp('description').focus()
+                    }
+                    */
+
+                }); // each()
+                Ext.Msg.alert('Form is invalid!', errorMessage);
+            }   
+                    
+        
     },
-    // show hide buttons
-    showFirstButton: function() {
-        var FirstButton = this.getFirstButton();
-
-        FirstButton.show();
-    },
-
-    hideFirstButton: function() {
-        var FirstButton = this.getFirstButton();
-
-        if (FirstButton.isHidden()) {
-            return;
+    
+    onAction: function() {
+        
+      if (!this.showAction) {
+            this.showAction = Ext.create('GPSName.view.Add');
         }
-
-        FirstButton.hide();
+        this.getMain().push(this.showAction);
+        
+        this.showAction.loadGPS();
+   
     },
-        hideSecondButton: function() {
-        var SecondButton = this.getSecondButton();
-
-        if (SecondButton.isHidden()) {
-            return;
+        
+    onHome: function() {
+        
+      if (this.showAction) {      
+        // Push the show contact view into the navigation view
+        this.getMain().pop();
         }
+        
+    },
 
-        SecondButton.hide();
-    },
-        showSecondButton: function() {
-        var SecondButton = this.getSecondButton();
+ onSettings: function() {
 
-        SecondButton.show();
-    },
-    // button action
-    onFirstButton: function() {
+        if (!this.showSettings) {
+            this.showSettings = Ext.create('GPSName.view.Settings');
+        }
         
-        Ext.Msg.alert('First Button!');
-    },
-    onSecondButton: function() {
+        this.showSettings.setRecord(this.getShowSettings().getRecord());
         
-       // Ext.Msg.alert('Second Button!');
-        var application= GPSLogger.app.getController('Application');
-        application.addRecord('test');
-    },
-    // CRUD
-    addRecord: function() {
-        var form = Ext.getCmp('descriptiondetails');
-        var form2 = Ext.getCmp('technicaldetails');
-        formValues=form.getValues();
-        finalForm=formValues;
-        Ext.Msg.alert('Added Record!');
-        var log = Ext.create('GPSLogger.model.Logger', finalForm);
-        var d = new Date();
-        var curr_date = d.getDate();
-        var curr_month = d.getMonth();
-        var curr_year = d.getFullYear();
-
-        var datestamp=(curr_date + "-" + curr_month + "-" + curr_year);
-        log.set('date', ''+datestamp);
+        this.getMain().push(this.showSettings);
         
-        formValues2=form2.getValues();
-        log.set('timein',formValues2.timein);
-        
-        log.save();
-        Ext.getStore('Logger').sync();
-        Ext.getStore('Logger').load();
-    }
+        var settingsStore = Ext.getStore('Settings');
+        var item = settingsStore.getAt(0);
+        if (item){
+            this.showSettings.loadName(item.get('username'),item.get('password'));
+        }
       
+        
+    },
+     onFriends: function() {
+        if (!this.showFriends) {
+            this.showFriends = Ext.create('GPSName.view.Friends');
+        } 
+        this.getMain().push(this.showFriends);     
+        
+    },
+    Login: function(email,password) {
+        
+        
+        
+        // Make the JsonP request
+        Ext.util.JSONP.request({
+            url: 'http://www.onebiglink.com/gpsname.com/index.php/login/api_login',
+            callbackKey: 'callback',
+            params: {email: email, password : password},
+            success: function(response, request) {
+                // Unmask the viewport
+                Ext.Viewport.unmask();
+                    if (response.result !='OK')
+                    {
+                        Ext.Msg.alert('Login Error', response.message, Ext.emptyFn);
+                    } 
+                    else 
+                    {
+                        Ext.Msg.alert('Login OK');
+                        var locationsStore = Ext.getStore('Locations');
+                        locationsStore.load();
+                    }
+            }
+        });
+   
+ /*
+ 
+Ext.Ajax.request({
+    url: 'http://www.onebiglink.com/gpsname.com/index.php/login/api_login',
+    method: 'post',
+    dataType: "jsonp",
+    params: {email: email, password : password},
+    failure : function(response){
+        data = Ext.decode(response.responseText);
+        Ext.Msg.alert('Login Error', data.message, Ext.emptyFn);
+    },
+    success: function(response, opts) {
+    data = Ext.decode(response.responseText);
+    
+    if (data.result !='OK')
+    {
+        Ext.Msg.alert('Login Error', data.message, Ext.emptyFn);
+    } 
+    else 
+    {
+        Ext.Msg.alert('Login OK');
+        var locationsStore = Ext.getStore('Locations');
+        locationsStore.load();
+    }
+    }
+    });
+*/
+      
+    },
+    showEditButton: function() {
+        var editButton = this.getEditButton();
+
+        if (!editButton.isHidden()) {
+            return;
+        }
+
+        this.hideUpdateButton();
+
+        editButton.show();
+    },
+
+    hideEditButton: function() {
+        var editButton = this.getEditButton();
+
+        if (editButton.isHidden()) {
+            return;
+        }
+
+        editButton.hide();
+    },
+
+  showDeleteButton: function() {
+        var deleteButton = this.getDeleteButton();
+
+        if (!deleteButton.isHidden()) {
+            return;
+        }
+
+        this.hideDeleteButton();
+
+        deleteButton.show();
+    },
+
+    hideDeleteButton: function() {
+        var deleteButton = this.getDeleteButton();
+
+        if (deleteButton.isHidden()) {
+            return;
+        }
+
+        deleteButton.hide();
+    },
+    showUpdateButton: function() {
+        var updateButton = this.getUpdateButton();
+
+        if (!updateButton.isHidden()) {
+            return;
+        }
+
+        updateButton.show();
+    },
+    
+       showAddButton: function() {
+        var addButton = this.getAddButton();
+
+        if (!addButton.isHidden()) {
+            return;
+        }
+
+        addButton.show();
+    },
+    
+    
+    hideAddButton: function() {
+        var addButton = this.getAddButton();
+
+        if (addButton.isHidden()) {
+            return;
+        }
+
+        addButton.hide();
+    },
+    
+    
+
+    hideUpdateButton: function() {
+        var updateButton = this.getUpdateButton();
+
+        if (updateButton.isHidden()) {
+            return;
+        }
+
+        updateButton.hide();
+    }
 });
 
-Ext.define('GPSLogger.store.Logger', {
+Ext.define('GPSName.store.Locations', {
     extend: 'Ext.data.Store',
+
     config: {
-        model: 'GPSLogger.model.Logger',
+        model: 'GPSName.model.Locations',
+        sorters: 'title',
+        autoLoad : true,
+        proxy: {
+            type: 'jsonp',
+            url: 'http://www.onebiglink.com/gpsname.com/index.php/feed/json_mygpsnames',
+            reader: {
+            type: 'json'
+            }
+	}
+    }
+});
+
+
+
+
+
+Ext.define('GPSName.store.Tags', {
+    extend: 'Ext.data.Store',
+
+
+    config: {
+        id: 'tagStore',
+        model: 'GPSName.model.Tags',
+        autoLoad: false,
+        sorters: 'name',
+        proxy: {
+            type: 'jsonp',
+            url: 'http://www.onebiglink.com/gpsname.com/index.php/feed/tags'
+			}
+    }
+});
+
+Ext.define('GPSName.store.Settings', {
+    extend: 'Ext.data.Store',
+
+    config: {
+        model: 'GPSName.model.Settings',
         autoLoad: true
     }
 });
+
+
 
 /**
  * @author Ed Spencer
@@ -50254,124 +51070,28 @@ Ext.define('Ext.TitleBar', {
     }
 });
 
-/**
- * Used in the {@link Ext.tab.Bar} component. This shouldn't be used directly, instead use
- * {@link Ext.tab.Bar} or {@link Ext.tab.Panel}.
- * @private
- */
-Ext.define('Ext.tab.Tab', {
-    extend: 'Ext.Button',
-    xtype: 'tab',
-    alternateClassName: 'Ext.Tab',
-
-    // @private
-    isTab: true,
+Ext.define('GPSName.model.Locations', {
+    extend: 'Ext.data.Model',
 
     config: {
-        /**
-         * @cfg
-         * @inheritdoc
-         */
-        baseCls: Ext.baseCSSPrefix + 'tab',
-
-        /**
-         * @cfg {String} pressedCls
-         * The CSS class to be applied to a Tab when it is pressed. Defaults to 'x-tab-pressed'.
-         * Providing your own CSS for this class enables you to customize the pressed state.
-         * @accessor
-         */
-        pressedCls: Ext.baseCSSPrefix + 'tab-pressed',
-
-        /**
-         * @cfg {String} activeCls
-         * The CSS class to be applied to a Tab when it is active. Defaults to 'x-tab-active'.
-         * Providing your own CSS for this class enables you to customize the active state.
-         * @accessor
-         */
-        activeCls: Ext.baseCSSPrefix + 'tab-active',
-
-        /**
-         * @cfg {Boolean} active
-         * Set this to true to have the tab be active by default.
-         * @accessor
-         */
-        active: false,
-
-        /**
-         * @cfg {String} title
-         * The title of the card that this tab is bound to.
-         * @accessor
-         */
-        title: '&nbsp;'
-    },
-
-    // We need to override this so the iconElement is properly hidden using visibilty
-    // when we render it.
-    template: [
-        {
-            tag: 'span',
-            reference: 'badgeElement',
-            hidden: true
-        },
-        {
-            tag: 'span',
-            className: Ext.baseCSSPrefix + 'button-icon',
-            reference: 'iconElement',
-            style: 'visibility: hidden !important'
-        },
-        {
-            tag: 'span',
-            reference: 'textElement',
-            hidden: true
-        }
-    ],
-
-    /**
-     * @event activate
-     * Fires when a tab is activated
-     * @param {Ext.tab.Tab} this
-     */
-
-    /**
-     * @event deactivate
-     * Fires when a tab is deactivated
-     * @param {Ext.tab.Tab} this
-     */
-
-    updateTitle: function(title) {
-        this.setText(title);
-    },
-
-    hideIconElement: function() {
-        this.iconElement.dom.style.setProperty('visibility', 'hidden', '!important');
-    },
-
-    showIconElement: function() {
-        this.iconElement.dom.style.setProperty('visibility', 'visible', '!important');
-    },
-
-    updateActive: function(active, oldActive) {
-        var activeCls = this.getActiveCls();
-        if (active && !oldActive) {
-            this.element.addCls(activeCls);
-            this.fireEvent('activate', this);
-        } else if (oldActive) {
-            this.element.removeCls(activeCls);
-            this.fireEvent('deactivate', this);
-        }
+        fields: [
+            {name: 'id', type:'string'},
+            {name: 'title', type:'string'},
+            {name: 'description', type:'string'},
+            {name: 'lat', type:'string'},
+            {name: 'lon', type:'string'},
+            {name: 'image', type:'string'},
+            {name: 'tagged', type:'string'},
+        ],
+        validations: [
+            {type: 'presence', name: 'title',message:"Enter Title"},
+            {type: 'presence', name: 'description',message:"Enter Description"},
+            {type: 'presence', name: 'lat',message:"Enter Latitude"},
+            {type: 'presence', name: 'lon',message:"Enter Longitude"},
+            {type: 'presence', name: 'tagged',message:"Enter Tagged"}
+        ]
     }
-}, function() {
-    this.override({
-        activate: function() {
-            this.setActive(true);
-        },
-
-        deactivate: function() {
-            this.setActive(false);
-        }
-    });
 });
-
 /**
  * @author Ed Spencer
  * @aside guide proxies
@@ -50445,25 +51165,18 @@ Ext.define('Ext.data.proxy.LocalStorage', {
     }
 });
 
-Ext.define('GPSLogger.model.Logger', {
+Ext.define('GPSName.model.Settings', {
     extend: 'Ext.data.Model',
 
     config: {
-       proxy: {
+        proxy: {
             type: 'localstorage',
-            id  : 'Logger'
-            
+            id  : 'settings'
         },
-        allowDeselect: true,
-   
         fields: [
-            {name: 'id', type:'string'},
-            {name: 'name', type:'string'},
-            {name: 'description', type:'string'},
-            {name: 'lat', type:'string'},
-            {name: 'lon', type:'string'},
-            {name: 'date', type:'string'},
-            {name: 'timein', type:'string'}
+            {name: 'username', type:'string'},
+            {name: 'password', type:'string'},
+            {name: 'id', type:'int'}
         ],
         validations: [
         ]
@@ -51490,13 +52203,12 @@ Ext.define('Ext.navigation.View', {
     }
 });
 
-// Main Container View
-Ext.define('GPSLogger.view.Main', {
+
+Ext.define('GPSName.view.Main', {
     extend: 'Ext.navigation.View',
     xtype: 'mainview',
-    
-     requires: [
-         'GPSLogger.view.Screen1',
+
+    requires: [
     ],
 
     config: {
@@ -51505,51 +52217,90 @@ Ext.define('GPSLogger.view.Main', {
             ui: 'light',
             id: 'navBar',
             items: [
-
-                 {
+ 
+                {
                     xtype: 'button',
-                    id: 'FirstButton',
-                    text: 'First Button',
-                    ui: 'sencha',
+                    id: 'editButton',
+                    text: 'Edit',
                     align: 'right',
                     hidden: true,
- 
+                    hideAnimation: Ext.os.is.Android ? false : {
+                        type: 'fadeOut',
+                        duration: 200
+                    },
                     showAnimation: Ext.os.is.Android ? false : {
                         type: 'fadeIn',
-                        duration: 500
+                        duration: 200
                     }
                 },
                 {
                     xtype: 'button',
-                    id: 'SecondButton',
+                    id: 'deleteButton',
+                    text: 'Delete',
+                    ui: 'decline',
+                    align: 'right',
+                    hidden: true,
+                    hideAnimation: Ext.os.is.Android ? false : {
+                        type: 'fadeOut',
+                        duration: 200
+                    },
+                    showAnimation: Ext.os.is.Android ? false : {
+                        type: 'fadeIn',
+                        duration: 200
+                    }
+                },
+                {
+                    xtype: 'button',
+                    id: 'updateButton',
+                    text: 'Update',
+                    ui: 'confirm',
+                    align: 'right',
+                    hidden: true,
+                    hideAnimation: Ext.os.is.Android ? false : {
+                        type: 'fadeOut',
+                        duration: 200
+                    },
+                    showAnimation: Ext.os.is.Android ? false : {
+                        type: 'fadeIn',
+                        duration: 200
+                    }
+                },
+                {
+                    xtype: 'button',
+                    id: 'addButton',
                     text: 'Add',
                     ui: 'sencha',
                     align: 'right',
                     hidden: true,
- 
+                    hideAnimation: Ext.os.is.Android ? false : {
+                        type: 'fadeOut',
+                        duration: 200
+                    },
                     showAnimation: Ext.os.is.Android ? false : {
                         type: 'fadeIn',
-                        duration: 500
+                        duration: 200
                     }
                 }
             ]
         },
 
         items: [
-                        {xtype: 'toolbar',
+                            {xtype: 'toolbar',
                         docked: 'top',
-                        title:'',
                         id:'toptoolbar',
                         
                         items: [
                             { 
-                            xtype : "container", html : "<div><h1>GPSLogger</h1></div>"},
+                            xtype : "container", html : "<div><img style='width:75px;float:left;' src='http://gpsname.com/images/gpslogo_white.png'/></div>"},
+                           
                             
                         ]
                     },
-                    // Where you content goes
-                    { xtype: 'Dives' },
-		    { xtype: 'toolbar',
+                    
+                      
+
+			{ xtype: 'contacts' },
+			{ xtype: 'toolbar',
                     docked: 'bottom',
                     html: null,
                     // Center all items horizontally and vertically
@@ -51573,8 +52324,10 @@ Ext.define('GPSLogger.view.Main', {
 
                     // Add a bunch of buttons into the toolbar
                     items: [
-                        { height:'48px',iconAlign:'top',text:'Home',iconMask: true, iconCls: 'home', id:'Screen1Button' },
-                        { height:'48px',iconAlign:'top',text:'Add Dive',iconMask: true, iconCls: 'add', id:'Screen2Button' }
+                        { height:'48px',iconAlign:'top',text:'home',iconMask: true, iconCls: 'home', id:'homeButton' },
+                        { height:'48px',iconAlign:'top',text:'add',iconMask: true, iconCls: 'add', id:'actionButton' },
+                        { hidden:true,height:'48px',iconAlign:'top',text:'friends',iconMask: true, iconCls: 'favorites', id:'friendsButton' },
+                        { height:'48px',iconAlign:'top',text:'account',iconMask: true, iconCls: 'settings', id:'settingsButton' }
                     ]
                 }			
         ]
@@ -51582,881 +52335,286 @@ Ext.define('GPSLogger.view.Main', {
 });
 
 /**
- * Ext.tab.Bar is used internally by {@link Ext.tab.Panel} to create the bar of tabs that appears at the top of the tab
- * panel. It's unusual to use it directly, instead see the {@link Ext.tab.Panel tab panel docs} for usage instructions.
+ * @author Ed Spencer
+ * @aside guide proxies
  *
- * Used in the {@link Ext.tab.Panel} component to display {@link Ext.tab.Tab} components.
+ * The JsonP proxy is useful when you need to load data from a domain other than the one your application is running on. If
+ * your application is running on http://domainA.com it cannot use {@link Ext.data.proxy.Ajax Ajax} to load its data
+ * from http://domainB.com because cross-domain ajax requests are prohibited by the browser.
  *
- * @private
- */
-Ext.define('Ext.tab.Bar', {
-    extend: 'Ext.Toolbar',
-    alternateClassName: 'Ext.TabBar',
-    xtype : 'tabbar',
-
-    requires: ['Ext.tab.Tab'],
-
-    config: {
-        /**
-         * @cfg
-         * @inheritdoc
-         */
-        baseCls: Ext.baseCSSPrefix + 'tabbar',
-
-        // @private
-        defaultType: 'tab',
-
-        // @private
-        layout: {
-            type: 'hbox',
-            align: 'middle'
-        }
-    },
-
-    eventedConfig: {
-        /**
-         * @cfg {Number/String/Ext.Component} activeTab
-         * The initially activated tab. Can be specified as numeric index,
-         * component ID or as the component instance itself.
-         * @accessor
-         * @evented
-         */
-        activeTab: null
-    },
-
-    /**
-     * @event tabchange
-     * Fired when active tab changes.
-     * @param {Ext.tab.Bar} this
-     * @param {Ext.tab.Tab} newTab The new Tab
-     * @param {Ext.tab.Tab} oldTab The old Tab
-     */
-
-    initialize: function() {
-        var me = this;
-        me.callParent();
-
-        me.on({
-            tap: 'onTabTap',
-
-            delegate: '> tab',
-            scope   : me
-        });
-    },
-
-    // @private
-    onTabTap: function(tab) {
-        this.setActiveTab(tab);
-    },
-
-    /**
-     * @private
-     */
-    applyActiveTab: function(newActiveTab, oldActiveTab) {
-        if (!newActiveTab && newActiveTab !== 0) {
-            return;
-        }
-
-        var newTabInstance = this.parseActiveTab(newActiveTab);
-
-        if (!newTabInstance) {
-            return;
-        }
-        return newTabInstance;
-    },
-
-    /**
-     * @private
-     * When docked to the top, pack left, when on the bottom pack center
-     */
-    doSetDocked: function(newDocked) {
-        var layout = this.getLayout(),
-            pack   = newDocked == 'bottom' ? 'center' : 'left';
-
-        //layout isn't guaranteed to be instantiated so must test
-        if (layout.isLayout) {
-            layout.setPack(pack);
-        } else {
-            layout.pack = (layout && layout.pack) ? layout.pack : pack;
-        }
-    },
-
-    /**
-     * @private
-     * Sets the active tab
-     */
-    doSetActiveTab: function(newTab, oldTab) {
-        if (newTab) {
-            newTab.setActive(true);
-        }
-
-        if (oldTab) {
-            oldTab.setActive(false);
-        }
-    },
-
-    /**
-     * @private
-     * Parses the active tab, which can be a number or string
-     */
-    parseActiveTab: function(tab) {
-        //we need to call getItems to initialize the items, otherwise they will not exist yet.
-        if (typeof tab == 'number') {
-            return this.getInnerItems()[tab];
-        }
-        else if (typeof tab == 'string') {
-            tab = Ext.getCmp(tab);
-        }
-        return tab;
-    }
-});
-
-/**
- * @aside guide tabs
- * @aside video tabs-toolbars
+ * We can get around this using a JsonP proxy. JsonP proxy injects a `<script>` tag into the DOM whenever an AJAX request
+ * would usually be made. Let's say we want to load data from http://domainB.com/users - the script tag that would be
+ * injected might look like this:
  *
- * Tab Panels are a great way to allow the user to switch between several pages that are all full screen. Each
- * Component in the Tab Panel gets its own Tab, which shows the Component when tapped on. Tabs can be positioned at
- * the top or the bottom of the Tab Panel, and can optionally accept title and icon configurations.
+ *     <script src="http://domainB.com/users?callback=someCallback"></script>
  *
- * Here's how we can set up a simple Tab Panel with tabs at the bottom. Use the controls at the top left of the example
- * to toggle between code mode and live preview mode (you can also edit the code and see your changes in the live
- * preview):
+ * When we inject the tag above, the browser makes a request to that url and includes the response as if it was any
+ * other type of JavaScript include. By passing a callback in the url above, we're telling domainB's server that we want
+ * to be notified when the result comes in and that it should call our callback function with the data it sends back. So
+ * long as the server formats the response to look like this, everything will work:
  *
- *     @example miniphone preview
- *     Ext.create('Ext.TabPanel', {
- *         fullscreen: true,
- *         tabBarPosition: 'bottom',
- *
- *         defaults: {
- *             styleHtmlContent: true
- *         },
- *
- *         items: [
+ *     someCallback({
+ *         users: [
  *             {
- *                 title: 'Home',
- *                 iconCls: 'home',
- *                 html: 'Home Screen'
- *             },
- *             {
- *                 title: 'Contact',
- *                 iconCls: 'user',
- *                 html: 'Contact Screen'
- *             }
- *         ]
- *     });
- * One tab was created for each of the {@link Ext.Panel panels} defined in the items array. Each tab automatically uses
- * the title and icon defined on the item configuration, and switches to that item when tapped on. We can also position
- * the tab bar at the top, which makes our Tab Panel look like this:
- *
- *     @example miniphone preview
- *     Ext.create('Ext.TabPanel', {
- *         fullscreen: true,
- *
- *         defaults: {
- *             styleHtmlContent: true
- *         },
- *
- *         items: [
- *             {
- *                 title: 'Home',
- *                 html: 'Home Screen'
- *             },
- *             {
- *                 title: 'Contact',
- *                 html: 'Contact Screen'
+ *                 id: 1,
+ *                 name: "Ed Spencer",
+ *                 email: "ed@sencha.com"
  *             }
  *         ]
  *     });
  *
+ * As soon as the script finishes loading, the 'someCallback' function that we passed in the url is called with the JSON
+ * object that the server returned.
+ *
+ * JsonP proxy takes care of all of this automatically. It formats the url you pass, adding the callback parameter
+ * automatically. It even creates a temporary callback function, waits for it to be called and then puts the data into
+ * the Proxy making it look just like you loaded it through a normal {@link Ext.data.proxy.Ajax AjaxProxy}. Here's how
+ * we might set that up:
+ *
+ *     Ext.define('User', {
+ *         extend: 'Ext.data.Model',
+ *         config: {
+ *             fields: ['id', 'name', 'email']
+ *         }
+ *     });
+ *
+ *     var store = Ext.create('Ext.data.Store', {
+ *         model: 'User',
+ *         proxy: {
+ *             type: 'jsonp',
+ *             url : 'http://domainB.com/users'
+ *         }
+ *     });
+ *
+ *     store.load();
+ *
+ * That's all we need to do - JsonP proxy takes care of the rest. In this case the Proxy will have injected a script tag
+ * like this:
+ *
+ *     <script src="http://domainB.com/users?callback=callback1"></script>
+ *
+ * # Customization
+ *
+ * This script tag can be customized using the {@link #callbackKey} configuration. For example:
+ *
+ *     var store = Ext.create('Ext.data.Store', {
+ *         model: 'User',
+ *         proxy: {
+ *             type: 'jsonp',
+ *             url : 'http://domainB.com/users',
+ *             callbackKey: 'theCallbackFunction'
+ *         }
+ *     });
+ *
+ *     store.load();
+ *
+ * Would inject a script tag like this:
+ *
+ *     <script src="http://domainB.com/users?theCallbackFunction=callback1"></script>
+ *
+ * # Implementing on the server side
+ *
+ * The remote server side needs to be configured to return data in this format. Here are suggestions for how you might
+ * achieve this using Java, PHP and ASP.net:
+ *
+ * Java:
+ *
+ *     boolean jsonP = false;
+ *     String cb = request.getParameter("callback");
+ *     if (cb != null) {
+ *         jsonP = true;
+ *         response.setContentType("text/javascript");
+ *     } else {
+ *         response.setContentType("application/x-json");
+ *     }
+ *     Writer out = response.getWriter();
+ *     if (jsonP) {
+ *         out.write(cb + "(");
+ *     }
+ *     out.print(dataBlock.toJsonString());
+ *     if (jsonP) {
+ *         out.write(");");
+ *     }
+ *
+ * PHP:
+ *
+ *     $callback = $_REQUEST['callback'];
+ *
+ *     // Create the output object.
+ *     $output = array('a' => 'Apple', 'b' => 'Banana');
+ *
+ *     //start output
+ *     if ($callback) {
+ *         header('Content-Type: text/javascript');
+ *         echo $callback . '(' . json_encode($output) . ');';
+ *     } else {
+ *         header('Content-Type: application/x-json');
+ *         echo json_encode($output);
+ *     }
+ *
+ * ASP.net:
+ *
+ *     String jsonString = "{success: true}";
+ *     String cb = Request.Params.Get("callback");
+ *     String responseString = "";
+ *     if (!String.IsNullOrEmpty(cb)) {
+ *         responseString = cb + "(" + jsonString + ")";
+ *     } else {
+ *         responseString = jsonString;
+ *     }
+ *     Response.Write(responseString);
  */
-Ext.define('Ext.tab.Panel', {
-    extend: 'Ext.Container',
-    xtype : 'tabpanel',
-    alternateClassName: 'Ext.TabPanel',
-
-    requires: ['Ext.tab.Bar'],
+Ext.define('Ext.data.proxy.JsonP', {
+    extend: 'Ext.data.proxy.Server',
+    alternateClassName: 'Ext.data.ScriptTagProxy',
+    alias: ['proxy.jsonp', 'proxy.scripttag'],
+    requires: ['Ext.data.JsonP'],
 
     config: {
+        defaultWriterType: 'base',
+
         /**
-         * @cfg {String} ui
-         * Sets the UI of this component.
-         * Available values are: `light` and `dark`.
+         * @cfg {String} callbackKey
+         * See {@link Ext.data.JsonP#callbackKey}.
          * @accessor
          */
-        ui: 'dark',
+        callbackKey : 'callback',
 
         /**
-         * @cfg {Object} tabBar
-         * An Ext.tab.Bar configuration.
+         * @cfg {String} recordParam
+         * The param name to use when passing records to the server (e.g. 'records=someEncodedRecordString'). Defaults to
+         * 'records'
          * @accessor
          */
-        tabBar: true,
+        recordParam: 'records',
 
         /**
-         * @cfg {String} tabBarPosition
-         * The docked position for the {@link #tabBar} instance.
-         * Possible values are 'top' and 'bottom'.
+         * @cfg {Boolean} autoAppendParams
+         * True to automatically append the request's params to the generated url. Defaults to true
          * @accessor
          */
-        tabBarPosition: 'top',
-
-        /**
-         * @cfg layout
-         * @inheritdoc
-         */
-        layout: {
-            type: 'card',
-            animation: {
-                type: 'slide',
-                direction: 'left'
-            }
-        },
-
-        /**
-         * @cfg cls
-         * @inheritdoc
-         */
-        cls: Ext.baseCSSPrefix + 'tabpanel'
-
-        /**
-         * @cfg {Boolean/String/Object} scrollable
-         * @accessor
-         * @hide
-         */
-
-        /**
-         * @cfg {Boolean/String/Object} scroll
-         * @hide
-         */
+        autoAppendParams: true
     },
 
-    delegateListeners: {
-        delegate: '> component',
-        centeredchange: 'onItemCenteredChange',
-        dockedchange: 'onItemDockedChange',
-        floatingchange: 'onItemFloatingChange',
-        disabledchange: 'onItemDisabledChange'
-    },
+    /**
+     * Performs the read request to the remote domain. JsonP proxy does not actually create an Ajax request,
+     * instead we write out a `<script>` tag based on the configuration of the internal Ext.data.Request object
+     * @param {Ext.data.Operation} operation The {@link Ext.data.Operation Operation} object to execute
+     * @param {Function} callback A callback function to execute when the Operation has been completed
+     * @param {Object} scope The scope to execute the callback in
+     * @protected
+     */
+    doRequest: function(operation, callback, scope) {
 
-    initialize: function() {
-        this.callParent();
+        //generate the unique IDs for this request
+        var me      = this,
+            request = me.buildRequest(operation),
+            params  = request.getParams();
 
-        this.on({
-            order: 'before',
-            activetabchange: 'doTabChange',
-            delegate: '> tabbar',
-            scope   : this
+        // apply JsonP proxy-specific attributes to the Request
+        request.setConfig({
+            callbackKey: me.getCallbackKey(),
+            timeout: me.getTimeout(),
+            scope: me,
+            callback: me.createRequestCallback(request, operation, callback, scope)
         });
 
-    },
-
-    /**
-     * Tab panels should not be scrollable. Instead, you should add scrollable to any item that
-     * you want to scroll.
-     * @private
-     */
-    applyScrollable: function() {
-        return false;
-    },
-
-    /**
-     * Updates the Ui for this component and the {@link #tabBar}.
-     */
-    updateUi: function(newUi, oldUi) {
-        this.callParent(arguments);
-
-        if (this.initialized) {
-            this.getTabBar().setUi(newUi);
+        // Prevent doubling up because the params are already added to the url in buildUrl
+        if (me.getAutoAppendParams()) {
+            request.setParams({});
         }
+
+        request.setJsonP(Ext.data.JsonP.request(request.getCurrentConfig()));
+
+        // Set the params back once we have made the request though
+        request.setParams(params);
+
+        operation.setStarted();
+
+        me.lastRequest = request;
+
+        return request;
     },
 
     /**
      * @private
+     * Creates and returns the function that is called when the request has completed. The returned function
+     * should accept a Response object, which contains the response to be read by the configured Reader.
+     * The third argument is the callback that should be called after the request has been completed and the Reader has decoded
+     * the response. This callback will typically be the callback passed by a store, e.g. in proxy.read(operation, theCallback, scope)
+     * theCallback refers to the callback argument received by this function.
+     * See {@link #doRequest} for details.
+     * @param {Ext.data.Request} request The Request object
+     * @param {Ext.data.Operation} operation The Operation being executed
+     * @param {Function} callback The callback function to be called when the request completes. This is usually the callback
+     * passed to doRequest
+     * @param {Object} scope The scope in which to execute the callback function
+     * @return {Function} The callback function
      */
-    doSetActiveItem: function(newActiveItem, oldActiveItem) {
-        if (newActiveItem) {
-            var items = this.getInnerItems(),
-                oldIndex = items.indexOf(oldActiveItem),
-                newIndex = items.indexOf(newActiveItem),
-                reverse = oldIndex > newIndex,
-                animation = this.getLayout().getAnimation(),
-                tabBar = this.getTabBar(),
-                oldTab = tabBar.parseActiveTab(oldIndex),
-                newTab = tabBar.parseActiveTab(newIndex);
-
-            if (animation && animation.setReverse) {
-                animation.setReverse(reverse);
-            }
-
-            this.callParent(arguments);
-
-            if (newIndex != -1) {
-                this.forcedChange = true;
-                tabBar.setActiveTab(newIndex);
-                this.forcedChange = false;
-
-                if (oldTab) {
-                    oldTab.setActive(false);
-                }
-
-                if (newTab) {
-                    newTab.setActive(true);
-                }
-            }
-        }
-    },
-
-    /**
-     * Updates this container with the new active item.
-     */
-    doTabChange: function(tabBar, newTab) {
-        var oldActiveItem = this.getActiveItem(),
-            newActiveItem;
-
-        this.setActiveItem(tabBar.indexOf(newTab));
-        newActiveItem = this.getActiveItem();
-        return this.forcedChange || oldActiveItem !== newActiveItem;
-    },
-
-    /**
-     * Creates a new {@link Ext.tab.Bar} instance using {@link Ext#factory}.
-     * @private
-     */
-    applyTabBar: function(config) {
-        if (config === true) {
-            config = {};
-        }
-
-        if (config) {
-            Ext.applyIf(config, {
-                ui: this.getUi(),
-                docked: this.getTabBarPosition()
-            });
-        }
-
-        return Ext.factory(config, Ext.tab.Bar, this.getTabBar());
-    },
-
-    /**
-     * Adds the new {@link Ext.tab.Bar} instance into this container.
-     * @private
-     */
-    updateTabBar: function(newTabBar) {
-        if (newTabBar) {
-            this.add(newTabBar);
-            this.setTabBarPosition(newTabBar.getDocked());
-        }
-    },
-
-    /**
-     * Updates the docked position of the {@link #tabBar}.
-     * @private
-     */
-    updateTabBarPosition: function(position) {
-        var tabBar = this.getTabBar();
-        if (tabBar) {
-            tabBar.setDocked(position);
-        }
-    },
-
-    onItemAdd: function(card) {
+    createRequestCallback: function(request, operation, callback, scope) {
         var me = this;
 
-        if (!card.isInnerItem()) {
-            return me.callParent(arguments);
+        return function(success, response, errorType) {
+            delete me.lastRequest;
+            me.processResponse(success, operation, request, response, callback, scope);
+        };
+    },
+
+    // inherit docs
+    setException: function(operation, response) {
+        operation.setException(operation.getRequest().getJsonP().errorType);
+    },
+
+
+    /**
+     * Generates a url based on a given Ext.data.Request object. Adds the params and callback function name to the url
+     * @param {Ext.data.Request} request The request object
+     * @return {String} The url
+     */
+    buildUrl: function(request) {
+        var me      = this,
+            url     = me.callParent(arguments),
+            params  = Ext.apply({}, request.getParams()),
+            filters = params.filters,
+            records,
+            filter, i, value;
+
+        delete params.filters;
+
+        if (me.getAutoAppendParams()) {
+            url = Ext.urlAppend(url, Ext.Object.toQueryString(params));
         }
 
-        var tabBar = me.getTabBar(),
-            initialConfig = card.getInitialConfig(),
-            tabConfig = initialConfig.tab || {},
-            tabTitle = (card.getTitle) ? card.getTitle() : initialConfig.title,
-            tabIconCls = (card.getIconCls) ? card.getIconCls() : initialConfig.iconCls,
-            tabHidden = (card.getHidden) ? card.getHidden() : initialConfig.hidden,
-            tabDisabled = (card.getDisabled) ? card.getDisabled() : initialConfig.disabled,
-            tabBadgeText = (card.getBadgeText) ? card.getBadgeText() : initialConfig.badgeText,
-            innerItems = me.getInnerItems(),
-            index = innerItems.indexOf(card),
-            tabs = tabBar.getItems(),
-            activeTab = tabBar.getActiveTab(),
-            currentTabInstance = (tabs.length >= innerItems.length) && tabs.getAt(index),
-            tabInstance;
-
-        if (tabTitle && !tabConfig.title) {
-            tabConfig.title = tabTitle;
+        if (filters && filters.length) {
+            for (i = 0; i < filters.length; i++) {
+                filter = filters[i];
+                value = filter.getValue();
+                if (value) {
+                    url = Ext.urlAppend(url, filter.getProperty() + "=" + value);
+                }
+            }
         }
 
-        if (tabIconCls && !tabConfig.iconCls) {
-            tabConfig.iconCls = tabIconCls;
-        }
+        return url;
+    },
 
-        if (tabHidden && !tabConfig.hidden) {
-            tabConfig.hidden = tabHidden;
-        }
-
-        if (tabDisabled && !tabConfig.disabled) {
-            tabConfig.disabled = tabDisabled;
-        }
-
-        if (tabBadgeText && !tabConfig.badgeText) {
-            tabConfig.badgeText = tabBadgeText;
-        }
-
-
-        tabInstance = Ext.factory(tabConfig, Ext.tab.Tab, currentTabInstance);
-
-        if (!currentTabInstance) {
-            tabBar.insert(index, tabInstance);
-        }
-
-        card.tab = tabInstance;
-
-        me.callParent(arguments);
-
-        if (!activeTab && activeTab !== 0) {
-            tabBar.setActiveTab(tabBar.getActiveItem());
-        }
+    //inherit docs
+    destroy: function() {
+        this.abort();
+        this.callParent(arguments);
     },
 
     /**
-     * If an item gets enabled/disabled and it has an tab, we should also enable/disable that tab
-     * @private
+     * Aborts the current server request if one is currently running
      */
-    onItemDisabledChange: function(item, newDisabled) {
-        if (item && item.tab) {
-            item.tab.setDisabled(newDisabled);
+    abort: function() {
+        var lastRequest = this.lastRequest;
+        if (lastRequest) {
+            Ext.data.JsonP.abort(lastRequest.getJsonP());
         }
-    },
-
-    // @private
-    onItemRemove: function(item, index) {
-        this.getTabBar().remove(item.tab, this.getAutoDestroy());
-
-        this.callParent(arguments);
     }
-}, function() {
 });
 
-Ext.define('GPSLogger.view.Screen2', {
-    extend: 'Ext.tab.Panel',
-    id: 'Screen2',
-
-    config: {
-        tabBar: {
-            docked: 'top'
-        },
-        items: [
-            {
-                xtype: 'formpanel',
-                title: 'Description',
-                id:'descriptiondetails',
-                scrollable:true,
-                items: [
-                    {
-                        xtype: 'fieldset',
-                        title: 'Description Details',
-                        
-                        items: [
-                            {
-                            xtype:'datepickerfield',
-                            label:'Date'
-                            },
-                            {
-                                xtype: 'textfield',
-                                
-                                label: 'Name',
-                                name:  'name',
-                                id: 'name'
-                            },
-                            {
-                                xtype: 'textfield',
-                                
-                                label: 'Description',
-                                name:  'description',
-                                id: 'description'
-                            },
-                            {xtype:'container',
-                                layout: {
-                                 type: 'hbox'
-                                },
-                            
-                            
-                            items: [
-                                {
-                                xtype: 'button',
-                                name: 'boattag',
-                                text: 'Boat',
-                                labelwidth:'100%',
-                                width:'25%',
-                                cls: "x-checkbox",
-                                handler: function() {
-                                    Ext.getCmp('activities').setValue(Ext.getCmp('activities').getValue()+',Boat');
-                                    var activities=Ext.getCmp('activities').getValue();
-                                    activities=activities.replace(/(^,)|(,$)/g, "");
-                                    Ext.getCmp('activities').setValue(activities);
-                                }
-                            },
-                              {
-                                xtype: 'button',
-                                name: 'wrecktag',
-                                text: 'Wreck',
-                                labelwidth:'100%',
-                                width:'25%',
-                                cls: "x-checkbox",
-                                handler: function() {
-                                    Ext.getCmp('activities').setValue(Ext.getCmp('activities').getValue()+',Wreck');
-                                    var activities=Ext.getCmp('activities').getValue();
-                                    activities=activities.replace(/(^,)|(,$)/g, "");
-                                    Ext.getCmp('activities').setValue(activities);
-                                }
-                            },
-                            {
-                                xtype: 'button',
-                                name: 'nighttag',
-                                text: 'Night',
-                                labelwidth:'100%',
-                                width:'25%',
-                                cls: "x-checkbox",
-                                handler: function() {
-                                    Ext.getCmp('activities').setValue(Ext.getCmp('activities').getValue()+',Night');
-                                    var activities=Ext.getCmp('activities').getValue();
-                                    activities=activities.replace(/(^,)|(,$)/g, "");
-                                    Ext.getCmp('activities').setValue(activities);
-                                }
-                            },
-                            {
-                                xtype: 'button',
-                                name: 'deeptag',
-                                text: 'Deep',
-                                labelwidth:'100%',
-                                width:'25%',
-                                cls: "x-checkbox",
-                                handler: function() {
-                                    Ext.getCmp('activities').setValue(Ext.getCmp('activities').getValue()+',Deep');
-                                    var activities=Ext.getCmp('activities').getValue();
-                                    activities=activities.replace(/(^,)|(,$)/g, "");
-                                    Ext.getCmp('activities').setValue(activities);
-                                }
-                            }
-                                
-                            ]},
-                        
-                         {xtype:'container',
-                                layout: {
-                                 type: 'hbox'
-                                },
-                            
-                            
-                            items: [
-                                {
-                                xtype: 'button',
-                                name: 'shoretag',
-                                text: 'Shore',
-                                labelwidth:'100%',
-                                width:'33%',
-                                cls: "x-checkbox",
-                                handler: function() {
-                                    Ext.getCmp('activities').setValue(Ext.getCmp('activities').getValue()+',Shore');
-                                    var activities=Ext.getCmp('activities').getValue();
-                                    activities=activities.replace(/(^,)|(,$)/g, "");
-                                    Ext.getCmp('activities').setValue(activities);
-                                }
-                            },
-                              {
-                                xtype: 'button',
-                                name: 'reeftag',
-                                text: 'Reef',
-                                labelwidth:'100%',
-                                width:'33%',
-                                cls: "x-checkbox",
-                                handler: function() {
-                                    Ext.getCmp('activities').setValue(Ext.getCmp('activities').getValue()+',Reef');
-                                    var activities=Ext.getCmp('activities').getValue();
-                                    activities=activities.replace(/(^,)|(,$)/g, "");
-                                    Ext.getCmp('activities').setValue(activities);
-                                }
-                            },
-                            {
-                                xtype: 'button',
-                                name: 'drifttag',
-                                text: 'Drift',
-                                labelwidth:'100%',
-                                width:'33%',
-                                cls: "x-checkbox",
-                                handler: function() {
-                                    Ext.getCmp('activities').setValue(Ext.getCmp('activities').getValue()+',Drift');
-                                    var activities=Ext.getCmp('activities').getValue();
-                                    activities=activities.replace(/(^,)|(,$)/g, "");
-                                    Ext.getCmp('activities').setValue(activities);
-                                }
-                            },
-                            
-                                
-                            ]},
-                        
-                        {
-                                xtype: 'textfield',
-                                
-                                label: 'Activities',
-                                name:  'activities',
-                                id: 'activities'
-                            },
-                            
-                            {
-                                xtype:'container',
-                                layout: {
-                                 type: 'hbox'
-                                },
-                                items: [
-                                    {
-                                xtype: 'textfield',
-                                label: 'Lat',
-                                name:  'lat',
-                                width:'50%',
-                                id: 'lat'
-                            },
-                            {
-                                xtype: 'textfield',
-                                label: 'Lon',
-                                name:  'lon',
-                                width:'50%',
-                                id: 'lon'
-                            }
-                                    
-                                ]
-                            }
-                            
-                            
-                        ]
-                    }
-                ]
-            },
-             {
-                xtype: 'formpanel',
-                id:'technicaldetails',
-                   title: 'Tech',
-                scrollable:true,
-                items: [
-      
-                    {
-                        xtype: 'fieldset',
-                        title: 'Technical Details',
-                        items: [
-                            
-                            {
-                                xtype: 'textfield',
-                                label: 'Time In',
-                                name:  'timein',
-                                id: 'timein'
-                            },
-                            
-                            {
-                                xtype: 'button',
-                                name: 'timeinbutton',
-                                text: 'Timein',
-
-                                handler: function() { 
-                                      var hours = [
-                    {
-                    text: '00',
-                    value: '00'
-                },{
-                    text: '01',
-                    value: '01'
-                }, {
-                    text: '02',
-                    value: '02'
-                }, {
-                    text: '03',
-                    value: '03'
-                }, {
-                    text: '04',
-                    value: '04'
-                }, {
-                    text: '05',
-                    value: '05'
-                },{
-                    text: '06',
-                    value: '06'
-                },{
-                    text: '07',
-                    value: '07'
-                },{
-                    text: '08',
-                    value: '08'
-                },{
-                    text: '09',
-                    value: '09'
-                },{
-                    text: '10',
-                    value: '10'
-                },{
-                    text: '11',
-                    value: '11'
-                },{
-                    text: '12',
-                    value: '12'
-                },{
-                    text: '13',
-                    value: '13'
-                },{
-                    text: '14',
-                    value: '14'
-                },{
-                    text: '15',
-                    value: '15'
-                },{
-                    text: '16',
-                    value: '16'
-                },{
-                    text: '17',
-                    value: '17'
-                },{
-                    text: '18',
-                    value: '18'
-                },{
-                    text: '19',
-                    value: '19'
-                },{
-                    text: '20',
-                    value: '20'
-                },{
-                    text: '21',
-                    value: '21'
-                },{
-                    text: '22',
-                    value: '22'
-                },{
-                    text: '23',
-                    value: '23'
-                }];
-            
-            var minutes = [
-                {
-                    text: '00',
-                    value: '00'
-                },{
-                    text: '05',
-                    value: '05'
-                }, {
-                    text: '10',
-                    value: '10'
-                }, {
-                    text: '15',
-                    value: '15'
-                }, {
-                    text: '20',
-                    value: '20'
-                }, {
-                    text: '25',
-                    value: '25'
-                },{
-                    text: '30',
-                    value: '30'
-                },{
-                    text: '35',
-                    value: '35'
-                },{
-                    text: '40',
-                    value: '40'
-                },{
-                    text: '45',
-                    value: '45'
-                },{
-                    text: '50',
-                    value: '50'
-                },{
-                    text: '55',
-                    value: '55'
-                }
-            ];
-                 var picker = Ext.create('Ext.Picker', {
-                    useTitles: true,
-                    listeners: {
-                        change: function(picker, value, eOpts) {
-                           Ext.getCmp('timein').setValue(value.hour+':'+value.minute);
-                           
-                            }
-                        },
-                    slots: [{
-                        align: 'left',
-                        name: 'hour',
-                        title: 'hour',
-                        data: hours
-                    }, {
-                        align: 'right',
-                        name: 'minute',
-                        title: 'minute',
-                        data: minutes
-                    }] // slots
-                }); // create()
-                
-                Ext.Viewport.add(picker);
-                                }
-                            },
- 
-                            {
-                                xtype: 'textfield',
-                                label: 'Time Out',
-                                name:  'timeout',
-                                id: 'timeout'
-                            },
-                            {
-                                xtype: 'textfield',
-                                label: 'Air Temp',
-                                name:  'airtemp',
-                                id: 'airtemp'
-                            },
-                            {
-                                xtype: 'textfield',
-                                label: 'Water Temp',
-                                name:  'watertemp',
-                                id: 'watertemp'
-                            },
-                            {
-                                xtype: 'textfield',
-                                label: 'Bar In',
-                                name:  'barin',
-                                id: 'barin'
-                            },
-                            {
-                                xtype: 'textfield',
-                                label: 'Bar Out',
-                                name:  'barout',
-                                id: 'barout'
-                            },
-                            
-                        ]
-                        
-                    }
-                ]
-            },
-            {
-                xtype: 'formpanel',
-                id:'notesdetails',
-                 title: 'Notes',
-                scrollable:true,
-                items: [
-                    {
-                        xtype: 'fieldset',
-                        title: 'Notes',
-                        items: [
-                            
-                            {
-                                xtype: 'textfield',
-                                label: 'Notes',
-                                name:  'notes',
-                                id: 'notes'
-                            },    
-                        ]
-                        
-                    }
-                ]
-            }
-        ]
-    }
-
-});
 /**
  * @author Ed Spencer
  * @aside guide stores
@@ -52606,15 +52764,15 @@ var gpsname_user='';
 var gpsname_password=''; 
 
 Ext.application({
-    name: 'GPSLogger',
+    name: 'GPSName',
 
     requires: [
-        'Ext.MessageBox','Ext.form.Panel','Ext.form.FieldSet','Ext.field.Select','Ext.Map','Ext.field.Password','Ext.List','Ext.field.DatePicker'
+        'Ext.MessageBox','Ext.form.Panel','Ext.form.FieldSet','Ext.field.Select','Ext.Map','Ext.field.Password','Ext.field.Email','Ext.util.JSONP','Ext.field.Hidden','Ext.field.Search'
     ],
 
-    models: ['Logger'],
-    stores: ['Logger'],
-    views: ['Main','Screen1','Screen2','Dives'],
+    models: ['Locations','Tags','Settings'],
+    stores: ['Locations','Tags','Settings'],
+    views: ['Main','Locations','Tags','Add','Edit','Show','Friends','Settings'],
     controllers: ['Application'],
 
     icon: {
@@ -52640,7 +52798,7 @@ Ext.application({
         Ext.fly('appLoadingIndicator').destroy();
 
         // Initialize the main view
-        Ext.Viewport.add(Ext.create('GPSLogger.view.Main'));
+        Ext.Viewport.add(Ext.create('GPSName.view.Main'));
     },
 
     onUpdated: function() {
@@ -52655,5 +52813,4 @@ Ext.application({
         );
     }
 });
-
 
