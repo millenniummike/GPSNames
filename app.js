@@ -49022,17 +49022,22 @@ Ext.define('GPSName.view.Add', {
                            
                         },
                         title: 'Location',
+                        layout: {
+                            type:'hbox'
+                        },
                         items: [
                             {
                                 xtype: 'textfield',
                                 label: 'Lat',
                                 name: 'lat',
+                                width:'50%',
                                 id: 'lat'
                             },
                             {
                                 xtype: 'textfield',
                                 label: 'Lon',
                                 name: 'lon',
+                                width:'50%',
                                 id: 'lon'
                             }
                         ]
@@ -49221,16 +49226,21 @@ Ext.define('GPSName.view.Edit', {
                         xtype: 'fieldset',
  
                         title: 'Location',
+                        layout: {
+                            type:'hbox'
+                        },
                         items: [
                             {
                                 xtype: 'textfield',
                                 label: 'Lat',
-                                name: 'lat'
+                                name: 'lat',
+                                width:'50%'
                             },
                             {
                                 xtype: 'textfield',
                                 label: 'Lon',
-                                name: 'lon'
+                                name: 'lon',
+                                width:'50%'
                             }
                         ]
                     },
@@ -49302,44 +49312,7 @@ Ext.define('GPSName.view.Edit', {
                 useCurrentLocation: false
                 
             },
-                                    {
-                            xtype: 'button',
-                            text: 'Update',
-                            ui: 'confirm',
-                            handler: function() {
-                                var formValues = this.up('formpanel').getValues();
-                                var model = Ext.ModelMgr.create(formValues,'GPSName.model.Locations');      
-                                var errors = model.validate(),message = "";
-                                var errorMessage='';
-                                       
-                                 if(errors.isValid()){  
-                                    this.up('formpanel').submit();
-                                    Ext.Msg.alert('Updated!');
-                                } else { 
-                                     errors.each(function (err) {
-                                      
-                                        errorMessage += err.getMessage() + '<br/>';
-                                        
-
-                                        if (err.getMessage()=='Enter Tagged'){
-                                            Ext.getCmp('tagged').setLabelCls('error');
-                                            Ext.getCmp('tagfilter').setLabelCls('error');
-                                            Ext.getCmp('tagged').focus()
-                                        }
-                                        if (err.getMessage()=='Enter Title'){
-                                            Ext.getCmp('title').setLabelCls('error');
-                                            Ext.getCmp('title').focus()
-                                        }
-                                        if (err.getMessage()=='Enter Description'){
-                                            Ext.getCmp('description').setLabelCls('error');
-                                            Ext.getCmp('description').focus()
-                                        }
-
-                                    }); // each()
-                                    Ext.Msg.alert('Form is invalid!', errorMessage);
-                                }                                                             
-                            }
-                        }
+                                    
                 ]
             }
         ],
@@ -49536,7 +49509,7 @@ Ext.define('GPSName.view.Settings', {
     xtype: 'settings-show',
 
     config: {
-        title: 'Account Settings - Version 0.9.8',
+        title: 'Account - v0.9.9',
         layout: 'fit',
 
         items: [
