@@ -7,6 +7,7 @@ input, textarea, p, blockquote, th, td {
   -webkit-transform: translate3d(0, 0, 0);
 }
 
+
 /* line 8, ../themes/stylesheets/sencha-touch/default/core/_reset.scss */
 table {
   border-collapse: collapse;
