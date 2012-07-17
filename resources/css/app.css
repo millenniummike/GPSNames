@@ -4,9 +4,11 @@ h4, h5, h6, pre, code, form, fieldset, legend,
 input, textarea, p, blockquote, th, td {
   margin: 0;
   padding: 0;
-   -webkit-transform: translate3d(0, 0, 0);
 }
 
+body{
+    -webkit-transform: translate3d(0, 0, 0);
+}
 
 /* line 8, ../themes/stylesheets/sencha-touch/default/core/_reset.scss */
 table {
@@ -8655,7 +8657,7 @@ html, body {
   text-shadow: #fff 0 1px 1px;
   color: #333333;
   text-shadow: rgba(255, 255, 255, 0.25) 0 0.08em 0;
-  padding: 0.5em;
+  padding: 0.6em;
   display: none !important;
   background-color: #f7f7f7;
 }
@@ -9239,7 +9241,7 @@ input[type="search"]::-webkit-search-cancel-button {
 
 /* line 560, ../themes/stylesheets/sencha-touch/default/widgets/_form.scss */
 .x-form-fieldset {
-  margin: 0 0 0em;
+  margin: 0 0 1.5em;
 }
 /* line 563, ../themes/stylesheets/sencha-touch/default/widgets/_form.scss */
 .x-form-fieldset .x-form-label {
@@ -9695,9 +9697,4 @@ input[type="search"]::-webkit-search-cancel-button {
   100% {
     -webkit-transform: rotate(330deg);
   }
-}
-
-
-.x-toolbar-dark .x-title {
-margin-left: 70px;
 }
