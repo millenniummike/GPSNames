@@ -49859,9 +49859,16 @@ Ext.define('GPSName.view.Add', {
 
         items: [
             {
+                xtype: 'tabpanel',
+                tabBar: {
+                    docked: 'top'
+                },
+                items: [
+            {
                 
                 xtype: 'formpanel',
                 id:'addform',
+                title:'Location Details',
                
                 items: [
                     {
@@ -49990,12 +49997,15 @@ Ext.define('GPSName.view.Add', {
                     },
 
                         ]
-                    },
+                    }
+                ]
+            },
 
                      {
                 xtype: 'map',
                 id:'map_add',
-                height: 200,
+                title:'Map',
+                height: '100%',
                 useCurrentLocation: true,
                              mapOptions: {
                     zoom: 18,
@@ -50511,12 +50521,13 @@ Ext.define('GPSName.view.CreateAccount', {
             {
                 
                 xtype: 'formpanel',
+                id:'createAccountForm',
                 items: [
                  
                     {
                         xtype: 'fieldset',
    
-                        title: 'Authentication',
+                        title: 'User Details',
                         items: [
                             {
                                 xtype: 'textfield',
@@ -50549,12 +50560,8 @@ Ext.define('GPSName.view.CreateAccount', {
                             text: 'Create Account',
                             ui: 'confirm',
                             handler: function() {
-                                
-                               
-                                
-
-                                alert ("Settings Updated");
- 
+                              var application= GPSName.app.getController('Application');
+                              application.CreateAccount();
                             }
                         },
                         
@@ -50818,6 +50825,44 @@ onlookupKeyup: function(field, e) {
         this.showUpdateButton();
 
     },
+    CreateAccount: function (){
+
+            var formValues = Ext.getCmp('createAccountForm').getValues();
+            var model = Ext.ModelMgr.create(formValues,'GPSName.model.User');      
+            var errors = model.validate(),message = "";
+            var errorMessage='';
+                if(errors.isValid()){ 
+  
+  Ext.util.JSONP.request({
+            url: 'http://www.onebiglink.com/gpsname.com/index.php/login/api_create_gpsname',
+            callbackKey: 'callback',
+            params: {email:formValues.username,gpsname:formValues.gpsname,password:formValues.password},
+            success: function(response, request) {
+                // Unmask the viewport
+                Ext.Viewport.unmask();
+                    if (response.result !='OK')
+                    {
+                        Ext.Msg.alert('Create Error', response.message);
+                    } 
+                    else 
+                    {
+                        Ext.Msg.alert('Added!','');
+                        
+                    }
+            }
+        });
+            
+            
+            } else { 
+                    errors.each(function (err) {
+
+                    errorMessage += err.getMessage() + '<br/>';
+
+                }); // each()
+                Ext.Msg.alert('Form is invalid!', errorMessage);
+            }   
+
+    },
 
     onLocationAddSave: function() {
 
@@ -51046,7 +51091,7 @@ onlookupKeyup: function(field, e) {
                     } 
                     else 
                     {
-                        Ext.Msg.alert('Login OK');
+                        Ext.Msg.alert('Login OK','');
                         var locationsStore = Ext.getStore('Locations');
                         locationsStore.load();
                     }
@@ -52152,6 +52197,24 @@ Ext.define('GPSName.model.Locations', {
         ]
     }
 });
+Ext.define('GPSName.model.User', {
+    extend: 'Ext.data.Model',
+
+    config: {
+        fields: [
+            'username',
+            'gpsname',
+            'password'
+        ],
+         validations: [
+            {type: 'presence', name: 'username',message:"Enter Title"},
+            {type: 'presence', name: 'gpsname',message:"Enter GPSName"},
+            {type: 'presence', name: 'password',message:"Enter Password"},
+            {type: 'presence', name: 'password2',message:"Confirm Password"},
+        ]
+    }
+});
+
 /**
  * @author Ed Spencer
  * @aside guide proxies
@@ -53550,7 +53613,7 @@ Ext.application({
         'Ext.MessageBox','Ext.form.Panel','Ext.form.FieldSet','Ext.field.Select','Ext.Map','Ext.field.Password','Ext.field.Email','Ext.util.JSONP','Ext.field.Hidden','Ext.field.Search','Ext.tab.Panel','Ext.data.proxy.JsonP'
     ],
 
-    models: ['Locations','Tags','Settings','Places'],
+    models: ['Locations','Tags','Settings','Places','User'],
     stores: ['Locations','Tags','Settings','Places'],
     views: ['Main','Locations','Tags','Add','Edit','Show','Friends','Settings','CreateAccount','Places'],
     controllers: ['Application'],

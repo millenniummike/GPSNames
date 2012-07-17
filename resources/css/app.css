@@ -5,8 +5,7 @@ input, textarea, p, blockquote, th, td {
   margin: 0;
   padding: 0;
 }
-
-body{
+body {
     -webkit-transform: translate3d(0, 0, 0);
 }
 
@@ -9241,7 +9240,7 @@ input[type="search"]::-webkit-search-cancel-button {
 
 /* line 560, ../themes/stylesheets/sencha-touch/default/widgets/_form.scss */
 .x-form-fieldset {
-  margin: 0 0 1.5em;
+  margin: 0 0 0em;
 }
 /* line 563, ../themes/stylesheets/sencha-touch/default/widgets/_form.scss */
 .x-form-fieldset .x-form-label {
