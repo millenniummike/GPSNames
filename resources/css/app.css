@@ -5,6 +5,7 @@ input, textarea, p, blockquote, th, td {
   margin: 0;
   padding: 0;
   -webkit-transform: translate3d(0, 0, 0);
+  
 }
 
 
