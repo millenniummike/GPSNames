@@ -50363,7 +50363,7 @@ Ext.define('GPSName.view.Settings', {
     xtype: 'settings-show',
 
     config: {
-        title: 'Account - v0.9.9',
+        title: 'Account - 1.0.9',
         layout: 'fit',
 
         items: [
