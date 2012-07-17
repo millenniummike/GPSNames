@@ -50371,9 +50371,14 @@ Ext.define('GPSName.view.Settings', {
                 
                 xtype: 'formpanel',
                 items: [
-                    {
-                        xtype:'container',
-                        html:'<a href="http://www.gpsname.com/index.php/login/signup">Create Account</a>'
+                       {
+                        xtype: 'button',
+                        text: 'Create Account',
+                        ui: 'sencha',
+                        id:'createAccountButton',
+                        handler: function() {
+                            
+                            }
                     },
                     {
                         xtype: 'fieldset',
@@ -50385,6 +50390,12 @@ Ext.define('GPSName.view.Settings', {
                                 label: 'Username',
                                 name:  'username',
                                 id: 'username'
+                            },
+                             {
+                                xtype: 'textfield',
+                                label: 'GPSName',
+                                name:  'gpsname',
+                                id: 'gpsname'
                             },
                             {
                                 xtype: 'passwordfield',
@@ -50465,12 +50476,106 @@ Ext.define('GPSName.view.Settings', {
     }
 });
 
+Ext.define('GPSName.view.CreateAccount', {
+    extend: 'Ext.Container',
+    xtype: 'createaccount-show',
+
+    config: {
+        title: 'Create GPSName Account',
+        layout: 'fit',
+
+        items: [
+            {
+                
+                xtype: 'formpanel',
+                items: [
+                 
+                    {
+                        xtype: 'fieldset',
+   
+                        title: 'Authentication',
+                        items: [
+                            {
+                                xtype: 'textfield',
+                                label: 'Email Address',
+                                name:  'username',
+                                id: 'username'
+                            },
+                            {
+                                xtype: 'textfield',
+                                label: 'GPSName',
+                                name:  'gpsname',
+                                id: 'gpsname'
+                            },
+                            {
+                                xtype: 'passwordfield',
+                                label: 'Password',
+                                name: 'password',
+                                id: 'password'
+                            },
+                            {
+                                xtype: 'passwordfield',
+                                label: 'Password Confirm',
+                                name: 'password2',
+                                id: 'password2'
+                            }
+                        ]
+                    },
+                                    {
+                            xtype: 'button',
+                            text: 'Create Account',
+                            ui: 'confirm',
+                            handler: function() {
+                                
+                               
+                                
+
+                                alert ("Settings Updated");
+ 
+                            }
+                        },
+                        
+                ]
+            }
+        ],
+
+        listeners: {
+            delegate: 'textfield',
+            keyup: 'onKeyUp'
+        },
+
+        record: null
+    },
+
+    updateRecord: function(newRecord) {
+        this.down('formpanel').setRecord(newRecord);
+    },
+
+    saveRecord: function() {
+        var formPanel = this.down('formpanel'),
+            record = formPanel.getRecord();
+
+        formPanel.updateRecord(record);
+
+        return record;
+    },
+
+    onKeyUp: function() {
+        this.fireEvent('change', this);
+    },
+    loadName: function(username,password){
+        Ext.getCmp('username').setValue('' +username);
+        Ext.getCmp('password').setValue('' +password);
+    }
+});
+
 Ext.define('GPSName.controller.Application', {
     extend: 'Ext.app.Controller',
     config: { 
         refs: {
             main: 'mainview',
             editButton: '#editButton',
+            createAccountButton: '#createAccountButton',
             deleteButton: '#deleteButton',
             contacts: 'contacts',
             tags: 'tags',
@@ -50478,6 +50583,7 @@ Ext.define('GPSName.controller.Application', {
             editContact: 'contact-edit',
             addContact: 'contact-add',
             showSettings: 'settings-show',
+            createAccount: 'createaccount-show',
             updateButton: '#updateButton',
             addButton: '#addButton',
             actionButton: '#actionButton',
@@ -50495,6 +50601,9 @@ Ext.define('GPSName.controller.Application', {
             },
             editButton: {
                 tap: 'onContactEdit'
+            },
+            createAccountButton: {
+                tap: 'onCreateAccount'
             },
             deleteButton: {
                 tap: 'onLocationDelete'
@@ -50804,7 +50913,15 @@ params:{filter: field.getValue()}
         this.showAction.loadGPS();
    
     },
+       
+        onCreateAccount: function() {
         
+      if (!this.showCreateAccount) {
+            this.showCreateAccount = Ext.create('GPSName.view.CreateAccount');
+        }
+        this.getMain().push(this.showCreateAccount);
+   
+    },
     onHome: function() {
         
       if (this.showAction) {      
@@ -53346,7 +53463,7 @@ Ext.application({
 
     models: ['Locations','Tags','Settings'],
     stores: ['Locations','Tags','Settings'],
-    views: ['Main','Locations','Tags','Add','Edit','Show','Friends','Settings'],
+    views: ['Main','Locations','Tags','Add','Edit','Show','Friends','Settings','CreateAccount'],
     controllers: ['Application'],
 
     icon: {
