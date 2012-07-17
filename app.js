@@ -50277,6 +50277,7 @@ Ext.define('GPSName.view.Show', {
                         label: 'Id',
                         id:'gpsnameid'
                     },
+
                     {
                         xtype: 'emailfield',
                         label: 'Email',
