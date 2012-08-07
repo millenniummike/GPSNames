@@ -50365,7 +50365,7 @@ Ext.define('GPSName.view.Show', {
             var map = this.down('map').getMap();
             
             // google
-            var navhtml='<div class="navigationapps"><a class="navbutton" style="padding:0px;" title="Use Google -> EazyGO" href="http://maps.google.com/maps?daddr='+
+            var navhtml='<div class="navigationapps"><a target="_blank" class="navbutton" style="padding:0px;" title="Use Google -> EazyGO" href="http://maps.google.com/maps?daddr='+
                 newRecord.data.lat+
                 ' '+
                 newRecord.data.lon+
@@ -50375,7 +50375,7 @@ Ext.define('GPSName.view.Show', {
             
             // nokia
             navhtml=navhtml+
-            '<div class="navigationapps"><a class="navbutton" style="padding:0px;" title="Use Nokia -> EazyGO" href="http://m.maps.nokia.com/#action=route&params=%7B%22mode%22%3A%22drive%22%2C%22ename%22%3A%22'+
+            '<div class="navigationapps"><a  target="_blank" class="navbutton" style="padding:0px;" title="Use Nokia -> EazyGO" href="http://m.maps.nokia.com/#action=route&params=%7B%22mode%22%3A%22drive%22%2C%22ename%22%3A%22'+
             title+
             '%22%2C%22elat%22%3A%22'+
             newRecord.data.lat+
@@ -50385,7 +50385,7 @@ Ext.define('GPSName.view.Show', {
         
             // waze
             navhtml=navhtml+
-            '<div class="navigationapps"><a class="navbutton" style="padding:0px;" title="Use Waze -> EazyGO" href="waze://?ll='+
+            '<div class="navigationapps"><a  target="_blank" class="navbutton" style="padding:0px;" title="Use Waze -> EazyGO" href="waze://?ll='+
             newRecord.data.lat+
             ','+
             newRecord.data.lon+
@@ -50393,7 +50393,7 @@ Ext.define('GPSName.view.Show', {
             
             //layar
             navhtml=navhtml+
-            '<div class="navigationapps"><a class="navbutton" style="padding:0px;" title="Use Waze -> EazyGO" href="layar://gpsname/?SEARCHBOX='+
+            '<div class="navigationapps"><a target="_blank" class="navbutton" style="padding:0px;" title="Use Waze -> EazyGO" href="layar://gpsname/?SEARCHBOX='+
             newRecord.data.id+
             '"><img class="mapicon" src="images/layar.png"/><br/>Layar</a></div>';
             
