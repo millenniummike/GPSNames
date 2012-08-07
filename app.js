@@ -50455,7 +50455,7 @@ Ext.define('GPSName.view.Settings', {
     xtype: 'settings-show',
 
     config: {
-        title: 'Account - 1.1.0',
+        title: 'Account - 1.1.1',
         layout: 'fit',
 
         items: [
