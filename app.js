@@ -50268,6 +50268,12 @@ Ext.define('GPSName.view.Show', {
                     }
                  }
             },
+            {
+            xtype: 'panel',
+            id: 'navigation',
+            html: '<div style="width:270px;margin:auto"/>'+
+                'Navigation'+
+                '</div>'},
 
             {
                 xtype: 'formpanel',
@@ -50358,7 +50364,41 @@ Ext.define('GPSName.view.Show', {
             var myLatLng = new google.maps.LatLng(newRecord.data.lat,newRecord.data.lon);
             var map = this.down('map').getMap();
             
+            // google
+            var navhtml='<div class="navigationapps"><a class="navbutton" style="padding:0px;" title="Use Google -> EazyGO" href="http://maps.google.com/maps?daddr='+
+                newRecord.data.lat+
+                ' '+
+                newRecord.data.lon+
+                '"><img class="mapicon" src="'+
+                'images/mapicon2.png'+
+                '"/><br/>Google Map</a></div>';
             
+            // nokia
+            navhtml=navhtml+
+            '<div class="navigationapps"><a class="navbutton" style="padding:0px;" title="Use Nokia -> EazyGO" href="http://m.maps.nokia.com/#action=route&params=%7B%22mode%22%3A%22drive%22%2C%22ename%22%3A%22'+
+            title+
+            '%22%2C%22elat%22%3A%22'+
+            newRecord.data.lat+
+            '%22%2C%22elng%22%3A%22'+
+            newRecord.data.lon+
+            '%22%7D&bmk=1"><img class="mapicon" src="images/nokiamap.png"/><br/>Nokia Maps</a></div>';
+        
+            // waze
+            navhtml=navhtml+
+            '<div class="navigationapps"><a class="navbutton" style="padding:0px;" title="Use Waze -> EazyGO" href="waze://?ll='+
+            newRecord.data.lat+
+            ','+
+            newRecord.data.lon+
+            '"><img class="mapicon" src="images/waze.png"/><br/>Waze</a></div>';
+            
+            //layar
+            navhtml=navhtml+
+            '<div class="navigationapps"><a class="navbutton" style="padding:0px;" title="Use Waze -> EazyGO" href="layar://gpsname/?SEARCHBOX='+
+            newRecord.data.id+
+            '"><img class="mapicon" src="images/layar.png"/><br/>Layar</a></div>';
+            
+            
+            Ext.getCmp('navigation').setHtml(navhtml);
   
           var marker = new google.maps.Marker({
               position: myLatLng,
@@ -51151,7 +51191,7 @@ onlookupKeyup: function(field, e) {
                     } 
                     else 
                     {
-                        Ext.Msg.alert('Login OK','');
+                        //Ext.Msg.alert('Login OK','');
                         var locationsStore = Ext.getStore('Locations');
                         locationsStore.load();
                     }

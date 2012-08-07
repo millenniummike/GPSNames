@@ -9695,3 +9695,13 @@ input[type="search"]::-webkit-search-cancel-button {
     -webkit-transform: rotate(330deg);
   }
 }
+
+.navigationapps{
+    float:left;
+    width:60px;
+    margin:5px;
+    text-align:center;
+}
+.navigationapps a{
+    font-size:50%;
+}
