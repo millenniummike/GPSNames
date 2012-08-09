@@ -50002,7 +50002,7 @@ Ext.define('GPSName.view.Add', {
                 id:'map_add',
                 title:'Map',
                 height: '100%',
-                useCurrentLocation: false,
+                useCurrentLocation: true,
                              mapOptions: {
                     zoom: 18,
                     mapTypeId: google.maps.MapTypeId.SATELLITE,
@@ -50044,6 +50044,11 @@ Ext.define('GPSName.view.Add', {
     },
     
     loadGPS: function () {
+        
+        
+        
+        
+        
         var geoReady = navigator.geolocation || undefined;
         if (geoReady) {
             var onSuccess = function(position) {              
@@ -50054,7 +50059,10 @@ Ext.define('GPSName.view.Add', {
             function onError(error) {
  
             }
-            navigator.geolocation.getCurrentPosition(onSuccess, onError);
+            
+            // Update every 3 seconds
+        var options = { frequency: 3000 };
+        watchID = navigator.geolocation.watchPosition(onSuccess, onError, options);
         }
     }
 });
