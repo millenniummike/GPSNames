@@ -50452,7 +50452,7 @@ Ext.define('GPSName.view.Settings', {
     xtype: 'settings-show',
 
     config: {
-        title: 'Account - 1.1.1',
+        title: 'Account - 1.1.2',
         layout: 'fit',
 
         items: [
@@ -51188,7 +51188,8 @@ onlookupKeyup: function(field, e) {
                     } 
                     else 
                     {
-                        //Ext.Msg.alert('Login OK','');
+                        
+                        Ext.Msg.alert('Login OK','');
                         var locationsStore = Ext.getStore('Locations');
                         locationsStore.load();
                     }
@@ -53733,9 +53734,13 @@ Ext.application({
         // try logging in with cached details
         var settingsStore = Ext.getStore('Settings');
         var item = settingsStore.getAt(0);
-        if (item){
-            var application= GPSName.app.getController('Application');
+        var application= GPSName.app.getController('Application');
+        if (item){  
             application.Login(item.get('username'),item.get('password'));
+         }
+         else
+         {
+            application.onSettings(); 
          }
     },
 
