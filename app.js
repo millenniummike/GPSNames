@@ -50044,29 +50044,19 @@ Ext.define('GPSName.view.Add', {
     },
     
     loadGPS: function () {
-        
-    var geo = Ext.create('Ext.util.Geolocation', {
-    autoUpdate: true,
-    listeners: {
-        locationupdate: function(geo) {
+
+        var geoReady = navigator.geolocation || undefined;
+        if (geoReady) {
+            var onSuccess = function(position) {              
+                Ext.getCmp('lat').setValue('' + position.coords.latitude);
+                Ext.getCmp('lon').setValue('' + position.coords.longitude);
             
-            if (geoupdate){
-            Ext.getCmp('lat').setValue('' + geo.getLatitude());
-            Ext.getCmp('lon').setValue('' + geo.getLongitude());
-        }
-     
-            
-        },
-        locationerror: function(geo, bTimeout, bPermissionDenied, bLocationUnavailable, message) {
-            if(bTimeout){
-                alert('Timeout occurred.');
-            } else {
-                alert('Error occurred.');
+            };
+            function onError(error) {
+ 
             }
+            navigator.geolocation.getCurrentPosition(onSuccess, onError);
         }
-    }
-});
-geo.updateLocation();
     }
 });
 Ext.define('GPSName.view.Edit', {
