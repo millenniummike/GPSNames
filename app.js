@@ -53740,6 +53740,7 @@ Ext.application({
          }
          else
          {
+            Ext.Msg.alert('Please Setup Your Account', '');
             application.onSettings(); 
          }
     },
