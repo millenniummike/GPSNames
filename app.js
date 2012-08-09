@@ -50045,6 +50045,7 @@ Ext.define('GPSName.view.Add', {
     
     loadGPS: function () {
 
+        alert ("Load GPS!");
         var geoReady = navigator.geolocation || undefined;
         if (geoReady) {
             var onSuccess = function(position) {              
