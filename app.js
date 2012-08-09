@@ -50002,7 +50002,7 @@ Ext.define('GPSName.view.Add', {
                 id:'map_add',
                 title:'Map',
                 height: '100%',
-                useCurrentLocation: true,
+                useCurrentLocation: false,
                              mapOptions: {
                     zoom: 18,
                     mapTypeId: google.maps.MapTypeId.SATELLITE,
