@@ -49770,6 +49770,17 @@ Ext.define('GPSName.model.Places', {
     }
 });
 
+Ext.define('GPSName.model.Users', {
+    extend: 'Ext.data.Model',
+
+    config: {
+        fields: [
+            'gpsname',
+            'email'
+        ]
+    }
+});
+
 Ext.define('GPSName.view.Locations', {
     extend: 'Ext.List',
     
@@ -49784,10 +49795,37 @@ Ext.define('GPSName.view.Locations', {
                                 placeHolder: 'Filter',
                                 id:'searchbox',
                                 align:'center'
-                            }], 
+        }], 
         title: 'GPSNames',
         cls: 'x-contacts',
         store: 'Locations',
+        grouped: true,
+        itemTpl: [
+            '<div class="headshot" style="float:left;height:37px;">{images}</div>',
+            '{title}',
+            '<div style="font-size:80%;color:grey;">{description}</div>'
+        ].join('')
+    }
+});
+
+Ext.define('GPSName.view.Locations_user', {
+    extend: 'Ext.List',
+    
+    xtype: 'locations_user',
+
+    config: {
+        items:[
+         {
+                                xtype: 'searchfield',
+                                label: '',
+                                height:'30px',
+                                placeHolder: 'Filter',
+                                id:'searchbox_names_user',
+                                align:'center'
+                            }], 
+        title: 'GPSNames',
+        cls: 'x-locations-user',
+        store: 'Locations_user',
         grouped: true,
         itemTpl: [
             '<div class="headshot" style="float:left;height:37px;">{images}</div>',
@@ -50420,10 +50458,10 @@ Ext.define('GPSName.view.Show', {
             }
 });
 
-Ext.define('GPSName.view.Friends', {
+Ext.define('GPSName.view.Users', {
     extend: 'Ext.List',
     
-    xtype: 'friends',
+    xtype: 'users',
 
     config: {
         items:[
@@ -50432,17 +50470,14 @@ Ext.define('GPSName.view.Friends', {
                                 label: '',
                                 height:'30px',
                                 placeHolder: 'Filter',
-                                id:'searchbox',
+                                id:'searchbox_names',
                                 align:'center'
                             }], 
-        title: 'GPSName Connections',
-        cls: 'x-friends',
-
-        store: 'Locations',
+        title: 'GPSName Users',
+        cls: 'x-gpsusers',
+        store: 'Users',
         itemTpl: [
-            '<div class="headshot" style="float:left;width:32px;height:37px;background-image:url({image});"></div>',
-            '{title}',
-            '<div style="font-size:80%;color:grey;">{description}</div>'
+            '<div>{gpsname}</div>'
         ].join('')
     }
 });
@@ -50729,6 +50764,7 @@ Ext.define('GPSName.controller.Application', {
             createAccountButton: '#createAccountButton',
             deleteButton: '#deleteButton',
             locations: 'locations',
+            users: 'users',
             tags: 'tags',
             places: 'places',
             showLocation: 'location-show',
@@ -50743,6 +50779,8 @@ Ext.define('GPSName.controller.Application', {
             settingsButton: '#settingsButton',
             friendsButton: '#friendsButton',
             searchbox: '#searchbox',
+            searchbox_names: '#searchbox_names',
+            searchbox_names_user: '#searchbox_names_user',
             tagfilter: '#tagfilter',
             lookupplaces: '#lookupplaces'
         },
@@ -50763,6 +50801,9 @@ Ext.define('GPSName.controller.Application', {
             },
             locations: {
                 itemtap: 'onContactSelect'
+            },
+            users: {
+                itemtap: 'onUserSelect'
             },
             updateButton: {
                 tap: 'onLocationUpdate'
@@ -50792,6 +50833,14 @@ Ext.define('GPSName.controller.Application', {
                 keyup: 'onSearchKeyup',
                 clearicontap: 'onSearchKeyup'
             },
+            searchbox_names: {
+                keyup: 'onSearchNamesKeyup',
+                clearicontap: 'onSearchNamesKeyup'
+            },
+            searchbox_names_user: {
+                keyup: 'onSearchNamesUserKeyup',
+                clearicontap: 'onSearchNamesUserKeyup'
+            },
              tagfilter: {
                 keyup: 'ontagfilterKeyup',
                 clearicontap: 'ontagfilterKeyup'
@@ -50818,6 +50867,25 @@ onSearchKeyup: function(field, e) {
         }
         
         store.getProxy().setExtraParam('gpsname', gpsname_user);   
+        store.load();
+
+},
+
+onSearchNamesUserKeyup: function(field, e) {
+    
+     var store = Ext.getStore('Locations_user');
+        // clear all existing filters
+        store.clearFilter();
+        store.filter('title', field.getValue()); 
+        //store.load();
+
+},
+onSearchNamesKeyup: function(field, e) {
+    
+     var store = Ext.getStore('Users');
+        // clear all existing filters
+        store.clearFilter();
+        store.filter('gpsname', field.getValue()); 
         store.load();
 
 },
@@ -50879,6 +50947,23 @@ onlookupKeyup: function(field, e) {
         
         Ext.getCmp('toptoolbar').setTitle(''+record.data.title);
         Ext.getCmp('gpsnameid').setValue(''+record.data.id);
+    },
+    
+    onUserSelect: function(list, index, node, record) {
+        
+        
+        
+        var locationsUserStore = Ext.getStore('Locations_user');
+        
+        locationsUserStore.clearFilter();
+        locationsUserStore.load({
+                                    params:{gpsname: record.data.email}
+        });
+                                    
+         this.showLocationsUser = Ext.create('GPSName.view.Locations_user');
+         this.showLocationsUser.setRecord(record);
+         this.getMain().push(this.showLocationsUser);
+
     },
 
     onContactEdit: function() {
@@ -51165,10 +51250,10 @@ onlookupKeyup: function(field, e) {
         
     },
      onFriends: function() {
-        if (!this.showFriends) {
-            this.showFriends = Ext.create('GPSName.view.Friends');
+        if (!this.showUsers) {
+            this.showUsers = Ext.create('GPSName.view.Users');
         } 
-        this.getMain().push(this.showFriends);     
+        this.getMain().push(this.showUsers);     
         
     },
     Login: function(email,password) {
@@ -51319,6 +51404,40 @@ Ext.define('GPSName.store.Locations', {
 
 
 
+Ext.define('GPSName.store.Locations_user', {
+    extend: 'Ext.data.Store',
+
+    config: {
+        model: 'GPSName.model.Locations_user',
+        sorters: 'title',
+        autoLoad : false,
+        proxy: {
+            type: 'jsonp',
+            url: 'http://www.gpsname.com/index.php/feed/json_getgpsnames',
+            reader: {
+            type: 'json'
+            }
+	},
+        getGroupString: function (record) {
+
+        if (record && record.data.category) {
+
+        return record.get('category');
+
+        } else {
+
+        return '';
+
+        }
+
+        }
+    }
+});
+
+
+
+
+
 Ext.define('GPSName.store.Tags', {
     extend: 'Ext.data.Store',
 
@@ -51359,6 +51478,23 @@ Ext.define('GPSName.store.Places', {
             type: 'jsonp',
             url: 'http://www.gpsname.com/index.php/facebook_connect/locations_jsonp/lat/lon'
 			}
+    }
+});
+
+Ext.define('GPSName.store.Users', {
+    extend: 'Ext.data.Store',
+
+    config: {
+        model: 'GPSName.model.Users',
+        sorters: 'gpsname',
+        autoLoad : true,
+        proxy: {
+            type: 'jsonp',
+            url: 'http://www.gpsname.com/index.php/feed/json_users',
+            reader: {
+            type: 'json'
+            }
+	}
     }
 });
 
@@ -52260,6 +52396,30 @@ Ext.define('Ext.TitleBar', {
 });
 
 Ext.define('GPSName.model.Locations', {
+    extend: 'Ext.data.Model',
+
+    config: {
+        fields: [
+            {name: 'id', type:'string'},
+            {name: 'title', type:'string'},
+            {name: 'description', type:'string'},
+            {name: 'lat', type:'string'},
+            {name: 'lon', type:'string'},
+            {name: 'image', type:'string'},
+            {name: 'images', type:'string'},
+            {name: 'category', type:'string'},
+            {name: 'tagged', type:'string'},
+        ],
+        validations: [
+            {type: 'presence', name: 'title',message:"Enter Title"},
+            {type: 'presence', name: 'description',message:"Enter Description"},
+            {type: 'presence', name: 'lat',message:"Enter Latitude"},
+            {type: 'presence', name: 'lon',message:"Enter Longitude"},
+            {type: 'presence', name: 'tagged',message:"Enter Tagged"}
+        ]
+    }
+});
+Ext.define('GPSName.model.Locations_user', {
     extend: 'Ext.data.Model',
 
     config: {
@@ -53536,7 +53696,7 @@ Ext.define('GPSName.view.Main', {
                     items: [
                         { height:'48px',iconAlign:'top',text:'home',iconMask: true, iconCls: 'home', id:'homeButton' },
                         { height:'48px',iconAlign:'top',text:'add',iconMask: true, iconCls: 'add', id:'actionButton' },
-                        { hidden:true,height:'48px',iconAlign:'top',text:'friends',iconMask: true, iconCls: 'favorites', id:'friendsButton' },
+                        { height:'48px',iconAlign:'top',text:'friends',iconMask: true, iconCls: 'favorites', id:'friendsButton' },
                         { height:'48px',iconAlign:'top',text:'account',iconMask: true, iconCls: 'settings', id:'settingsButton' }
                     ]
                 }			
@@ -53701,9 +53861,9 @@ Ext.application({
         'Ext.MessageBox','Ext.form.Panel','Ext.form.FieldSet','Ext.field.Select','Ext.Map','Ext.field.Password','Ext.field.Email','Ext.util.JSONP','Ext.field.Hidden','Ext.field.Search','Ext.tab.Panel','Ext.data.proxy.JsonP'
     ],
 
-    models: ['Locations','Tags','Settings','Places','User'],
-    stores: ['Locations','Tags','Settings','Places'],
-    views: ['Main','Locations','Tags','Add','Edit','Show','Friends','Settings','CreateAccount','Places'],
+    models: ['Locations','Locations_user','Tags','Settings','Places','User','Users'],
+    stores: ['Locations','Locations_user','Tags','Settings','Places','Users'],
+    views: ['Main','Locations','Locations_user','Tags','Add','Edit','Show','Users','Settings','CreateAccount','Places'],
     controllers: ['Application'],
 
     icon: {
