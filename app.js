@@ -50080,13 +50080,16 @@ Ext.define('GPSName.view.Add', {
     onKeyUp: function() {
         this.fireEvent('change', this);
     },
+    updateGPS: function (position) {
+        Ext.getCmp('lat').setValue('' + position.coords.latitude);
+        Ext.getCmp('lon').setValue('' + position.coords.longitude);
+    },
+    errorGPS: function (position) {
+        
+    },
     
     loadGPS: function () {
-        
-        
-        
-        
-        
+
         var geoReady = navigator.geolocation || undefined;
         if (geoReady) {
             var onSuccess = function(position) {              
@@ -50100,7 +50103,7 @@ Ext.define('GPSName.view.Add', {
             
             // Update every 3 seconds
         var options = { frequency: 3000 };
-        watchID = navigator.geolocation.watchPosition(onSuccess, onError, options);
+        wpid=navigator.geolocation.watchPosition(this.updateGPS, this.errorGPS, {frequency:1000,enableHighAccuracy:true, maximumAge:30000, timeout:27000});
         }
     }
 });
