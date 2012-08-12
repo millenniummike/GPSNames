@@ -50476,7 +50476,7 @@ Ext.define('GPSName.view.Users', {
                                 id:'searchbox_names',
                                 align:'center'
                             }], 
-        title: 'GPSName Users',
+        title: 'GPSName Friends',
         cls: 'x-gpsusers',
         store: 'Users',
         itemTpl: [
@@ -50767,6 +50767,7 @@ Ext.define('GPSName.controller.Application', {
             createAccountButton: '#createAccountButton',
             deleteButton: '#deleteButton',
             locations: 'locations',
+            locations_user: 'locations_user',
             users: 'users',
             tags: 'tags',
             places: 'places',
@@ -50803,6 +50804,9 @@ Ext.define('GPSName.controller.Application', {
                 tap: 'onLocationDelete'
             },
             locations: {
+                itemtap: 'onContactSelect'
+            },
+            locations_user: {
                 itemtap: 'onContactSelect'
             },
             users: {
@@ -50970,15 +50974,11 @@ onlookupKeyup: function(field, e) {
     },
 
     onContactEdit: function() {
-        if (!this.editContact) {
+       // if (!this.editContact) {
             
             this.editContact = Ext.create('GPSName.view.Edit');
-        }
-        else
-            {
-               // Ext.destroy('GPSName.view.Edit');
-              //this.editContact = Ext.create('GPSName.view.Edit');
-            }
+        //}
+
         this.showDeleteButton();
         // Bind the record onto the edit contact view
         var record=this.getShowLocation().getRecord();
@@ -51057,26 +51057,9 @@ onlookupKeyup: function(field, e) {
             var errors = model.validate(),message = "";
             var errorMessage='';
                 if(errors.isValid()){ 
-                    
-                    /*
-                    Ext.Ajax.request({
-                        url: 'http://www.gpsname.com/index.php/feed/add_gpsname',
-                        method: 'post',
-                        params: {lat:formValues.lat,lon:formValues.lon,string:formValues.title,description:formValues.description,permissions:formValues.permissions,category:formValues.category,descriptiontags:formValues.tagged},
-                        failure : function(response){
-                        data = Ext.decode(response.responseText);
 
-                        },
-                        success: function(response, opts) {
-                        data = Ext.decode(response.responseText);
-                        if (data.errorMessage != null)
-                        {
-                        }
-                        }
-                    });
-            */
-                    
-                      Ext.util.JSONP.request({
+
+Ext.util.JSONP.request({
             url: 'http://www.gpsname.com/index.php/feed/add_gpsname',
             callbackKey: 'callback',
             params: {lat:formValues.lat,lon:formValues.lon,string:formValues.title,description:formValues.description,permissions:formValues.permissions,category:formValues.category,descriptiontags:formValues.tagged},
@@ -51208,9 +51191,9 @@ onlookupKeyup: function(field, e) {
     
     onAction: function() {
         
-     // if (!this.showAction) {
+    //  if (!this.showAction) {
             this.showAction = Ext.create('GPSName.view.Add');
-     //   }
+      //}
         this.getMain().push(this.showAction);
         
         this.showAction.loadGPS();
@@ -51219,26 +51202,26 @@ onlookupKeyup: function(field, e) {
        
         onCreateAccount: function() {
         
-      if (!this.showCreateAccount) {
+     // if (!this.showCreateAccount) {
             this.showCreateAccount = Ext.create('GPSName.view.CreateAccount');
-        }
+       // }
         this.getMain().push(this.showCreateAccount);
    
     },
     onHome: function() {
         
-      if (this.showAction) {      
+      //if (this.showAction) {      
         // Push the show contact view into the navigation view
-        this.getMain().pop();
-        }
+        this.getMain().reset();
+      //  }
         
     },
 
  onSettings: function() {
 
-        if (!this.showSettings) {
+       // if (!this.showSettings) {
             this.showSettings = Ext.create('GPSName.view.Settings');
-        }
+       // }
         
         this.showSettings.setRecord(this.getShowSettings().getRecord());
         
@@ -51253,9 +51236,9 @@ onlookupKeyup: function(field, e) {
         
     },
      onFriends: function() {
-        if (!this.showUsers) {
+        //if (!this.showUsers) {
             this.showUsers = Ext.create('GPSName.view.Users');
-        } 
+        //} 
         this.getMain().push(this.showUsers);     
         
     },
