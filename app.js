@@ -49776,7 +49776,28 @@ Ext.define('GPSName.model.Users', {
     config: {
         fields: [
             'gpsname',
-            'email'
+            'email',
+            'friend',
+            {
+      name: 'sortAndGroupName',
+      convert: function(value, record)
+      {
+        return record.get('gpsname').toUpperCase();
+      },
+      getGroupString: function (record) {
+
+        if (record && record.data.friend) {
+
+        return record.get('friend');
+
+        } else {
+
+        return '';
+
+        }
+
+        }
+    }
         ]
     }
 });
@@ -50469,28 +50490,31 @@ Ext.define('GPSName.view.Users', {
     config: {
         items:[
          {
-                                xtype: 'searchfield',
-                                label: '',
-                                height:'30px',
-                                placeHolder: 'Filter',
-                                id:'searchbox_names',
-                                align:'center'
+            xtype: 'searchfield',
+            label: '',
+            height:'30px',
+            placeHolder: 'Filter',
+            id:'searchbox_names',
+            align:'center'
                             }], 
-        title: 'GPSName Friends',
+        title: 'GPSName Users',
         cls: 'x-gpsusers',
         store: 'Users',
+        grouped: true,
         itemTpl: [
-            '<div>{gpsname}</div>'
+            '<div style="'+
+            '<tpl if="friend == \'true\'">color:green;</tpl>'+
+            '">'+
+            '{gpsname}</div>'
         ].join('')
     }
 });
-
 Ext.define('GPSName.view.Settings', {
     extend: 'Ext.Container',
     xtype: 'settings-show',
 
     config: {
-        title: 'Account - 1.1.2',
+        title: 'Account - 1.1.4',
         layout: 'fit',
 
         items: [
@@ -50962,6 +50986,8 @@ onlookupKeyup: function(field, e) {
         
         var locationsUserStore = Ext.getStore('Locations_user');
         
+        if (record.data.friend=='true'){             
+        
         locationsUserStore.clearFilter();
         locationsUserStore.load({
                                     params:{gpsname: record.data.email}
@@ -50970,6 +50996,29 @@ onlookupKeyup: function(field, e) {
          this.showLocationsUser = Ext.create('GPSName.view.Locations_user');
          this.showLocationsUser.setRecord(record);
          this.getMain().push(this.showLocationsUser);
+        }
+        else
+            {
+    
+    Ext.Msg.prompt(
+    'Connect!',
+    'Connect to user?',
+    function (btn, value) {
+        if(btn == 'ok'){
+             alert ('Sending message '+value)
+         }
+         else
+        {
+            
+        }
+    },
+    null,
+    false,
+    null,
+    { autoCapitalize : true, placeHolder : 'Message to user...' }
+);
+
+            }
 
     },
 
@@ -51472,7 +51521,16 @@ Ext.define('GPSName.store.Users', {
 
     config: {
         model: 'GPSName.model.Users',
-        sorters: 'gpsname',
+        sorters: [
+      {
+        property: 'friend',
+        direction: 'DESC'
+      },
+      {
+        property: 'sortAndGroupName',
+        direction: 'ASC'
+      }
+        ],
         autoLoad : true,
         proxy: {
             type: 'jsonp',
@@ -51480,7 +51538,25 @@ Ext.define('GPSName.store.Users', {
             reader: {
             type: 'json'
             }
-	}
+	},
+        getGroupString: function (record) {
+
+        if (record && record.data.friend) {
+            if (record.get('friend')=='true'){
+                return "Connections";
+            }
+            else
+            {
+            return "Other";
+            }
+
+        } else {
+
+        return '';
+
+        }
+
+        }
     }
 });
 
@@ -53682,7 +53758,7 @@ Ext.define('GPSName.view.Main', {
                     items: [
                         { height:'48px',iconAlign:'top',text:'home',iconMask: true, iconCls: 'home', id:'homeButton' },
                         { height:'48px',iconAlign:'top',text:'add',iconMask: true, iconCls: 'add', id:'actionButton' },
-                        { height:'48px',iconAlign:'top',text:'friends',iconMask: true, iconCls: 'favorites', id:'friendsButton' },
+                        { height:'48px',iconAlign:'top',text:'users',iconMask: true, iconCls: 'user', id:'friendsButton' },
                         { height:'48px',iconAlign:'top',text:'account',iconMask: true, iconCls: 'settings', id:'settingsButton' }
                     ]
                 }			
