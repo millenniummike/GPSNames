@@ -49776,6 +49776,7 @@ Ext.define('GPSName.model.Users', {
     config: {
         fields: [
             'gpsname',
+            'gpsid',
             'email',
             'friend',
             {
@@ -49817,13 +49818,39 @@ Ext.define('GPSName.view.Locations', {
                                 id:'searchbox',
                                 align:'center'
         }], 
-        title: 'GPSNames',
+        title: 'My Places',
         cls: 'x-contacts',
         store: 'Locations',
         grouped: true,
         itemTpl: [
             '<div class="headshot" style="float:left;height:37px;">{images}</div>',
             '{title}',
+            '<div style="font-size:80%;color:grey;">{description}</div>'
+        ].join('')
+    }
+});
+
+Ext.define('GPSName.view.Locations_all', {
+    extend: 'Ext.List',
+    
+    xtype: 'locations_all',
+
+    config: {
+        items:[
+         {
+            xtype: 'searchfield',
+            label: '',
+            height:'30px',
+            placeHolder: 'Filter',
+            id:'searchbox_names_user_all',
+            align:'center'
+        }], 
+        title: 'Places',
+        cls: 'x-locations-user',
+        store: 'Locations_all',
+        grouped: true,
+        itemTpl: [
+            '<div class="headshot" style="float:left;height:37px;">{images}</div>{title}',
             '<div style="font-size:80%;color:grey;">{description}</div>'
         ].join('')
     }
@@ -49837,14 +49864,14 @@ Ext.define('GPSName.view.Locations_user', {
     config: {
         items:[
          {
-                                xtype: 'searchfield',
-                                label: '',
-                                height:'30px',
-                                placeHolder: 'Filter',
-                                id:'searchbox_names_user',
-                                align:'center'
-                            }], 
-        title: 'GPSNames',
+            xtype: 'searchfield',
+            label: '',
+            height:'30px',
+            placeHolder: 'Filter',
+            id:'searchbox_names_user',
+            align:'center'
+        }], 
+        title: 'Places',
         cls: 'x-locations-user',
         store: 'Locations_user',
         grouped: true,
@@ -49913,7 +49940,7 @@ Ext.define('GPSName.view.Add', {
     xtype: 'contact-add',
 
     config: {
-        title: 'Add GPSName',
+        title: 'Add Place',
         layout: 'fit',
 
         items: [
@@ -49932,17 +49959,25 @@ Ext.define('GPSName.view.Add', {
                 items: [
                     {
                         xtype: 'fieldset',
+                        layout: 'vbox',
                         defaults: {
                             
                         },
                         title: 'Information',
                         items: [
+  
+                       { xtype: 'places',
+                              name: 'places',
+                              id: 'places',
+                              height:'0'
+                       },
                             {
                                 xtype:'button',
                                 text:'Lookup',
                                 handler: function() {
-                                    
-                                    Ext.getStore('Places').load({
+                                    var store = Ext.getStore('Places');
+                                    store.clearFilter();
+                                    store.load({
                                     params:{lat: Ext.getCmp('lat').getValue(),lon:Ext.getCmp('lon').getValue()}
                                     });
                                     
@@ -49951,11 +49986,8 @@ Ext.define('GPSName.view.Add', {
                                 
                             },
 
-                             { xtype: 'places',
-                              name: 'places',
-                              id: 'places',
-                              height:'50'
-                       },
+  
+                       
                             {
                                 xtype: 'textfield',
                                 label: 'Title',
@@ -50015,7 +50047,7 @@ Ext.define('GPSName.view.Add', {
                        { xtype: 'tags',
                               name: 'tags',
                               id: 'tags',
-                              height:'50'
+                              height:'0'
                        },
                       
                      {
@@ -50039,15 +50071,12 @@ Ext.define('GPSName.view.Add', {
                     },
                     
                   {          xtype: 'selectfield',
-                                label: 'Who can See?',
+                                label: 'Viewable by',
                                 name: 'permissions',
                                 options: [
-                                    {text: 'Everyone',  value: '1'},
-                                    {text: 'Other GPSName users', value: '2'},
-                                    {text: 'Connected GPSName users', value: '3'},
-                                    {text: 'Facebook Friends', value: '4'},
-                                    {text: 'Facebook Friends & Connected GPSName Users', value: '5'},
-                                    {text: 'No one', value: '6'},
+                                    {text: 'Public',  value: '1'},
+                                    {text: 'Connected Users', value: '3'},
+                                    {text: 'Private', value: '6'},
                                 ]
                     },
 
@@ -50064,7 +50093,6 @@ Ext.define('GPSName.view.Add', {
                 useCurrentLocation: true,
                              mapOptions: {
                     zoom: 18,
-                    mapTypeId: google.maps.MapTypeId.SATELLITE,
                     navigationControl: true,
                     zoomControl: true,
                     zoomControlOptions: {
@@ -50104,6 +50132,36 @@ Ext.define('GPSName.view.Add', {
     updateGPS: function (position) {
         Ext.getCmp('lat').setValue('' + position.coords.latitude);
         Ext.getCmp('lon').setValue('' + position.coords.longitude);
+        
+            //alert ("attempt to add marker!")
+                
+            var image =  "images/icons/1.png";
+            var title = "Marker";
+
+            var myLatLng = new google.maps.LatLng(position.coords.latitude,position.coords.longitude);
+            var map = Ext.getCmp('map_add').getMap();
+            
+            var marker = new google.maps.Marker({
+              position: myLatLng,
+              icon: image,
+              map: map
+          });
+          
+          var contentString = '<div id="markercontent">'+
+                    ''+title+
+                    '</div>';
+
+                var infowindow = new google.maps.InfoWindow({
+                    content: contentString
+                });
+
+                google.maps.event.addListener(marker, 'click', function() {
+                infowindow.open(map,marker);
+                });
+
+            marker.setMap(map);
+            
+            //alert ("Added marker!")
     },
     errorGPS: function (position) {
         
@@ -50116,6 +50174,9 @@ Ext.define('GPSName.view.Add', {
             var onSuccess = function(position) {              
                 Ext.getCmp('lat').setValue('' + position.coords.latitude);
                 Ext.getCmp('lon').setValue('' + position.coords.longitude);
+                
+        
+            
             
             };
             function onError(error) {
@@ -50233,15 +50294,12 @@ Ext.define('GPSName.view.Edit', {
                     },
                             
                                   {          xtype: 'selectfield',
-                                label: 'Who can See?',
+                                label: 'Viewable by',
                                 name: 'permissions',
                                 options: [
-                                    {text: 'Everyone',  value: '1'},
-                                    {text: 'Other GPSName users', value: '2'},
-                                    {text: 'Connected GPSName users', value: '3'},
-                                    {text: 'Facebook Friends', value: '4'},
-                                    {text: 'Facebook Friends & Connected GPSName Users', value: '5'},
-                                    {text: 'No one', value: '6'},
+                                    {text: 'Public',  value: '1'},
+                                    {text: 'Connected Users', value: '3'},
+                                    {text: 'Private', value: '6'},
                                 ]
                     },
 
@@ -50424,17 +50482,17 @@ Ext.define('GPSName.view.Show', {
             var map = this.down('map').getMap();
             
             // google
-            var navhtml='<div class="navigationapps"><a target="_blank" class="navbutton" style="padding:0px;" title="Use Google -> EazyGO" href="http://maps.google.com/maps?daddr='+
+            var navhtml='<div style="background: #1985D0;height: 80px;"><div class="navigationapps"><a target="_blank" class="navbutton" style="padding:0px;float:left;" title="Use Google -> EazyGO" href="http://maps.google.com/maps?daddr='+
                 newRecord.data.lat+
                 ' '+
                 newRecord.data.lon+
                 '"><img class="mapicon" src="'+
                 'images/mapicon2.png'+
-                '"/><br/>Google Map</a></div>';
+                '"/>Google Map</a></div>';
             
             // nokia
             navhtml=navhtml+
-            '<div class="navigationapps"><a  target="_blank" class="navbutton" style="padding:0px;" title="Use Nokia -> EazyGO" href="http://m.maps.nokia.com/#action=route&params=%7B%22mode%22%3A%22drive%22%2C%22ename%22%3A%22'+
+            '<div class="navigationapps"><a  target="_blank" class="navbutton" style="float:left;padding:0px;" title="Use Nokia -> EazyGO" href="http://m.maps.nokia.com/#action=route&params=%7B%22mode%22%3A%22drive%22%2C%22ename%22%3A%22'+
             title+
             '%22%2C%22elat%22%3A%22'+
             newRecord.data.lat+
@@ -50444,7 +50502,7 @@ Ext.define('GPSName.view.Show', {
         
             // waze
             navhtml=navhtml+
-            '<div class="navigationapps"><a  target="_blank" class="navbutton" style="padding:0px;" title="Use Waze -> EazyGO" href="waze://?ll='+
+            '<div class="navigationapps"><a  target="_blank" class="navbutton" style="float:left;padding:0px;" title="Use Waze -> EazyGO" href="waze://?ll='+
             newRecord.data.lat+
             ','+
             newRecord.data.lon+
@@ -50452,9 +50510,9 @@ Ext.define('GPSName.view.Show', {
             
             //layar
             navhtml=navhtml+
-            '<div class="navigationapps"><a target="_blank" class="navbutton" style="padding:0px;" title="Use Waze -> EazyGO" href="layar://gpsname/?SEARCHBOX='+
+            '<div class="navigationapps"><a target="_blank" class="navbutton" style="float:left;padding:0px;" title="Use Waze -> EazyGO" href="layar://gpsname/?SEARCHBOX='+
             newRecord.data.id+
-            '"><img class="mapicon" src="images/layar.png"/><br/>Layar</a></div>';
+            '"><img class="mapicon" src="images/layar.png"/><br/>Layar</a></div></div>';
             
             
             Ext.getCmp('navigation').setHtml(navhtml);
@@ -50497,7 +50555,7 @@ Ext.define('GPSName.view.Users', {
             id:'searchbox_names',
             align:'center'
                             }], 
-        title: 'GPSName Users',
+        title: 'Users',
         cls: 'x-gpsusers',
         store: 'Users',
         grouped: true,
@@ -50514,9 +50572,8 @@ Ext.define('GPSName.view.Settings', {
     xtype: 'settings-show',
 
     config: {
-        title: 'Account - 1.1.4',
+        title: 'Account - 1.1.6',
         layout: 'fit',
-
         items: [
             {
                 
@@ -50580,6 +50637,9 @@ Ext.define('GPSName.view.Settings', {
                                 gpsname_password=form.password;
                                 var application= GPSName.app.getController('Application');
                                 application.Login(gpsname_user,gpsname_password);
+                                application.showPlacesButton();
+                                application.showFriendsButton();
+                                application.showActionButton();
  
                             }
                         }
@@ -50714,68 +50774,38 @@ Ext.define('GPSName.view.Places', {
 
     config: {
         title: 'Places',
-        cls: 'x-contacts',
+        cls: 'places',
 
         store: 'Places',
         
         scrollable: 'false',
-        
+
         listeners:{
             itemtap: function(view, index, target, record, event){                
-                var name = record.get('name');  
-                var lat = record.get('lat'); 
-                var lon = record.get('lon'); 
-                name=name.replace(/(^,)|(,$)/g, "");
-                Ext.getCmp('title').setValue(name);
-                Ext.getCmp('lat').setValue(lat);
-                Ext.getCmp('lon').setValue(lon);
+                var value = record.get('name');
+                Ext.getCmp('title').setValue(value);
+                value = record.get('lat');
+                Ext.getCmp('lat').setValue(value);
+                value = record.get('lon');
+                Ext.getCmp('lon').setValue(value);
                 
                 Ext.getStore('Places').removeAll();
-                geoupdate=false;
-                var map=Ext.getCmp('map_add').getMap();
-                var myLatLng = new google.maps.LatLng(lat,lon);
-
-
-                Ext.getCmp('map_add').setUseCurrentLocation(false);
-                var marker = new google.maps.Marker({
-              position: myLatLng,
-              title:'My MARKER!',
-              icon: '',
-              map: map
-          });
-
-                var contentString = '<div id="markercontent">'+
-                    ''+name+
-                    '</div>';
-
-                var infowindow = new google.maps.InfoWindow({
-                    content: contentString
-                });
-
-                google.maps.event.addListener(marker, 'click', function() {
-                infowindow.open(map,marker);
-                });
                 
-                marker.setMap(map);
-            
-                Ext.getCmp('map_add').setMapCenter({
-                latitude: lat,
-                longitude: lon
-            });
-
             },
             
             refresh: function () {
                 
                 var items;
+                
                 var component=Ext.getCmp('places');
+                
+                
                 if (component){
                 items=component.getStore().getCount();
                 component.setHeight(10+items*50+10); 
-                }      
+                }              
             }
         },
-
         itemTpl: [
             '<span style="font-size:80%;">{name}</span>'
         ].join('')
@@ -50801,14 +50831,17 @@ Ext.define('GPSName.controller.Application', {
             showSettings: 'settings-show',
             createAccount: 'createaccount-show',
             updateButton: '#updateButton',
+            importButton: '#importButton',
             addButton: '#addButton',
             actionButton: '#actionButton',
             homeButton: '#homeButton',
             settingsButton: '#settingsButton',
             friendsButton: '#friendsButton',
+            placesButton: '#placesButton',
             searchbox: '#searchbox',
             searchbox_names: '#searchbox_names',
             searchbox_names_user: '#searchbox_names_user',
+            searchbox_names_user_all: '#searchbox_names_user_all',
             tagfilter: '#tagfilter',
             lookupplaces: '#lookupplaces'
         },
@@ -50833,11 +50866,18 @@ Ext.define('GPSName.controller.Application', {
             locations_user: {
                 itemtap: 'onContactSelect'
             },
+             locations_all: {
+                itemtap: 'onPlaceSelect'
+            },
             users: {
                 itemtap: 'onUserSelect'
             },
+
             updateButton: {
                 tap: 'onLocationUpdate'
+            },
+            importButton: {
+                tap: 'onImportButton'
             },
             addButton: {
                 tap: 'onLocationAddSave'
@@ -50860,6 +50900,9 @@ Ext.define('GPSName.controller.Application', {
             friendsButton: {
                 tap: 'onFriends'
             },
+            placesButton: {
+                tap: 'onPlaces'
+            },
             searchbox: {
                 keyup: 'onSearchKeyup',
                 clearicontap: 'onSearchKeyup'
@@ -50872,6 +50915,14 @@ Ext.define('GPSName.controller.Application', {
                 keyup: 'onSearchNamesUserKeyup',
                 clearicontap: 'onSearchNamesUserKeyup'
             },
+            
+             searchbox_names_user_all: {
+                keyup: 'onSearchNamesUserAllKeyup',
+                clearicontap: 'onSearchNamesAllUserKeyup'
+            },
+            
+            
+            
              tagfilter: {
                 keyup: 'ontagfilterKeyup',
                 clearicontap: 'ontagfilterKeyup'
@@ -50891,11 +50942,13 @@ onSearchKeyup: function(field, e) {
         store.clearFilter();
         store.filter('title', field.getValue()); 
         
+        /*
         var settingsStore = Ext.getStore('Settings');
         var item = settingsStore.getAt(0);
         if (item.data.username){
-            gpsname_user=item.data.username;
+            //gpsname_user=item.data.username;
         }
+        */
         
         store.getProxy().setExtraParam('gpsname', gpsname_user);   
         store.load();
@@ -50911,6 +50964,16 @@ onSearchNamesUserKeyup: function(field, e) {
         //store.load();
 
 },
+onSearchNamesUserAllKeyup: function(field, e) {
+    
+     var store = Ext.getStore('Locations_all');
+        // clear all existing filters
+        store.clearFilter();
+        //store.filter('title', field.getValue()); 
+        store.getProxy().setExtraParam('search', field.getValue()); 
+        store.load();
+
+},
 onSearchNamesKeyup: function(field, e) {
     
      var store = Ext.getStore('Users');
@@ -50921,9 +50984,13 @@ onSearchNamesKeyup: function(field, e) {
 
 },
 ontagfilterKeyup: function(field, e) {
-Ext.getStore('Tags').load({
+
+var store = Ext.getStore('Tags');
+store.clearFilter();
+store.load({
 params:{filter: field.getValue()}
 });
+
               
 
 
@@ -50933,7 +51000,17 @@ onlookupKeyup: function(field, e) {
 },
 
     onMainPush: function(view, item) {
+       
         //alert("push "+item.xtype);
+        
+        Ext.getCmp('toptoolbar').setTitle('');
+        this.hideAddButton();
+        this.hideDeleteButton();
+        this.hideEditButton();
+        this.hideUpdateButton();
+        this.hideImportButton();
+        
+         /*
         if (item.xtype == "contact-add") {
             this.getLocations().deselectAll();
             this.hideEditButton();
@@ -50947,6 +51024,7 @@ onlookupKeyup: function(field, e) {
             this.hideEditButton();
             
         }
+        */
     },
 
     onMainPop: function(view, item) {
@@ -50954,6 +51032,11 @@ onlookupKeyup: function(field, e) {
         
         this.hideAddButton();
         this.hideDeleteButton();
+        this.hideEditButton();
+        this.hideUpdateButton();
+        this.hideImportButton();
+        
+        /*
         
         
         if (item.xtype == "location-edit"||item.xtype == "contact-edit") {
@@ -50962,14 +51045,15 @@ onlookupKeyup: function(field, e) {
             this.hideEditButton();
             Ext.getCmp('toptoolbar').setTitle('');
         }
+        */
     },
 
     onContactSelect: function(list, index, node, record) {
-        var editButton = this.getEditButton();
-
+        
         //if (!this.showContact) {
             this.showContact = Ext.create('GPSName.view.Show');
         //}
+
         // Bind the record onto the show contact view
         this.showContact.setRecord(record);
 
@@ -50978,11 +51062,45 @@ onlookupKeyup: function(field, e) {
         
         Ext.getCmp('toptoolbar').setTitle(''+record.data.title);
         Ext.getCmp('gpsnameid').setValue(''+record.data.id);
+       
+        
+        if(record.data.owner_name==gpsname_user){
+            this.showEditButton();
+        }
+        else
+        {
+            this.showImportButton();
+        }
     },
     
+      onPlaceSelect: function(list, index, node, record) {
+        
+                
+        //if (!this.showContact) {
+            this.showContact = Ext.create('GPSName.view.Show');
+        //}
+
+        // Bind the record onto the show contact view
+        this.showContact.setRecord(record);
+
+        // Push the show contact view into the navigation view
+        this.getMain().push(this.showContact);
+        
+        Ext.getCmp('toptoolbar').setTitle(''+record.data.title);
+        Ext.getCmp('gpsnameid').setValue(''+record.data.id);
+       
+        
+        if(record.data.owner_name==gpsname_user){
+            this.showEditButton();
+        }
+        else
+        {
+            this.showImportButton();
+        }
+      },
+      
+    
     onUserSelect: function(list, index, node, record) {
-        
-        
         
         var locationsUserStore = Ext.getStore('Locations_user');
         
@@ -51005,7 +51123,32 @@ onlookupKeyup: function(field, e) {
     'Connect to user?',
     function (btn, value) {
         if(btn == 'ok'){
-             alert ('Sending message '+value)
+            
+            Ext.util.JSONP.request({
+            url: 'http://www.gpsname.com/index.php/login/api_create_connection',
+            callbackKey: 'callback',
+            params: {target_id:record.data.gpsid,message:'testing'},
+            success: function(response, request) {
+                // Unmask the viewport
+                Ext.Viewport.unmask();
+                    if (response.result !='OK')
+                    {
+                        Ext.Msg.alert('Connection to user Error', response.message);
+                    } 
+                    else 
+                    {
+                        
+                        
+                        Ext.Msg.alert('Added!',response.message);
+                         var store = Ext.getStore('Users');
+                        // clear all existing filters
+                        store.clearFilter(); 
+                        store.load();
+                        
+                    }
+            }
+        });
+            
          }
          else
         {
@@ -51023,32 +51166,33 @@ onlookupKeyup: function(field, e) {
     },
 
     onContactEdit: function() {
-       // if (!this.editContact) {
+    
+   
+      if (!this.editContact) {
             
             this.editContact = Ext.create('GPSName.view.Edit');
-        //}
+        }
 
-        this.showDeleteButton();
+
         // Bind the record onto the edit contact view
-        var record=this.getShowLocation().getRecord();
         
+        var record=this.showContact.getRecord();
+
         this.editContact.setRecord(record);
 
               var map = Ext.getCmp('map_edit').getMap();
         var myLatLng = new google.maps.LatLng(record.data.lat,record.data.lon);
-        map.setCenter(myLatLng, 18);
-        //alert (image);
+        
           var marker = new google.maps.Marker({
               position: myLatLng,
               icon: record.data.image,
               map: map
           });
-
             marker.setMap(map);
+            map.setCenter(myLatLng);
 
-        
-       
         this.getMain().push(this.editContact);
+        this.showDeleteButton();
     },
     onAddContactChange: function() {
         this.showAddButton();
@@ -51179,6 +51323,16 @@ Ext.util.JSONP.request({
         locationsStore.load();
         this.getMain().reset();
     },
+    
+        onImportButton: function () {
+        var record=this.showContact.getRecord();
+
+        if (!this.showAction) {
+            this.showAction = Ext.create('GPSName.view.Add');
+        }
+        this.showAction.setRecord(record);
+        this.getMain().push(this.showAction);
+    },
 
     onLocationUpdate: function() {
         
@@ -51240,9 +51394,9 @@ Ext.util.JSONP.request({
     
     onAction: function() {
         
-    //  if (!this.showAction) {
+      if (!this.showAction) {
             this.showAction = Ext.create('GPSName.view.Add');
-      //}
+      }
         this.getMain().push(this.showAction);
         
         this.showAction.loadGPS();
@@ -51291,6 +51445,17 @@ Ext.util.JSONP.request({
         this.getMain().push(this.showUsers);     
         
     },
+      onPlaces: function() {
+          
+        var placesStore = Ext.getStore('Locations_all');
+        placesStore.load();
+        
+        //if (!this.showUsers) {
+            this.showPlaces = Ext.create('GPSName.view.Locations_all');
+        //} 
+        this.getMain().push(this.showPlaces);     
+        
+    },
     Login: function(email,password) {
 
     if (email&&password){
@@ -51309,9 +51474,15 @@ Ext.util.JSONP.request({
                     else 
                     {
                         
-                        Ext.Msg.alert('Login OK','');
+                        Ext.Msg.alert('Login OK','id='+response.message);
                         var locationsStore = Ext.getStore('Locations');
                         locationsStore.load();
+                        gpsname_user=response.message;
+                        var application= GPSName.app.getController('Application');
+                        application.showPlacesButton();
+                        application.showFriendsButton();
+                        application.showActionButton();
+                        
                     }
             }
         });
@@ -51328,6 +51499,34 @@ Ext.util.JSONP.request({
         this.hideUpdateButton();
 
         editButton.show();
+    },
+      showPlacesButton: function() {
+        var placesButton = this.getPlacesButton();
+
+        if (!placesButton.isHidden()) {
+            return;
+        }
+
+        placesButton.show();
+    },
+          showFriendsButton: function() {
+        var friendsButton = this.getFriendsButton();
+
+        if (!friendsButton.isHidden()) {
+            return;
+        }
+
+        friendsButton.show();
+    },
+    
+     showActionButton: function() {
+        var actionButton = this.getActionButton();
+
+        if (!actionButton.isHidden()) {
+            return;
+        }
+
+        actionButton.show();
     },
 
     hideEditButton: function() {
@@ -51370,6 +51569,15 @@ Ext.util.JSONP.request({
 
         updateButton.show();
     },
+     showImportButton: function() {
+        var importButton = this.getImportButton();
+
+        if (!importButton.isHidden()) {
+            return;
+        }
+
+        importButton.show();
+    },
     
        showAddButton: function() {
         var addButton = this.getAddButton();
@@ -51402,6 +51610,15 @@ Ext.util.JSONP.request({
         }
 
         updateButton.hide();
+    },
+     hideImportButton: function() {
+        var importButton = this.getImportButton();
+
+        if (importButton.isHidden()) {
+            return;
+        }
+
+        importButton.hide();
     }
 });
 
@@ -51458,6 +51675,40 @@ Ext.define('GPSName.store.Locations_user', {
         if (record && record.data.category) {
 
         return record.get('category');
+
+        } else {
+
+        return '';
+
+        }
+
+        }
+    }
+});
+
+
+
+
+
+Ext.define('GPSName.store.Locations_all', {
+    extend: 'Ext.data.Store',
+
+    config: {
+        model: 'GPSName.model.Locations_user',
+        sorters: 'title',
+        autoLoad : false,
+        proxy: {
+            type: 'jsonp',
+            url: 'http://www.gpsname.com/index.php/feed/json_getgpsnames_all',
+            reader: {
+            type: 'json'
+            }
+	},
+        getGroupString: function (record) {
+
+        if (record && record.data.category) {
+
+        return record.get('owner_name');
 
         } else {
 
@@ -52463,6 +52714,8 @@ Ext.define('GPSName.model.Locations', {
     config: {
         fields: [
             {name: 'id', type:'string'},
+            {name: 'owner_id', type:'string'},
+            {name: 'owner_name', type:'string'},
             {name: 'title', type:'string'},
             {name: 'description', type:'string'},
             {name: 'lat', type:'string'},
@@ -52471,6 +52724,7 @@ Ext.define('GPSName.model.Locations', {
             {name: 'images', type:'string'},
             {name: 'category', type:'string'},
             {name: 'tagged', type:'string'},
+            {name: 'permissions', type:'string'},
         ],
         validations: [
             {type: 'presence', name: 'title',message:"Enter Title"},
@@ -52487,6 +52741,8 @@ Ext.define('GPSName.model.Locations_user', {
     config: {
         fields: [
             {name: 'id', type:'string'},
+            {name: 'owner_id', type:'string'},
+            {name: 'owner_name', type:'string'},
             {name: 'title', type:'string'},
             {name: 'description', type:'string'},
             {name: 'lat', type:'string'},
@@ -52495,6 +52751,7 @@ Ext.define('GPSName.model.Locations_user', {
             {name: 'images', type:'string'},
             {name: 'category', type:'string'},
             {name: 'tagged', type:'string'},
+            {name: 'permissions', type:'string'},
         ],
         validations: [
             {type: 'presence', name: 'title',message:"Enter Title"},
@@ -53697,6 +53954,22 @@ Ext.define('GPSName.view.Main', {
                         duration: 200
                     }
                 },
+                  {
+                    xtype: 'button',
+                    id: 'importButton',
+                    text: 'Import',
+                    ui: 'confirm',
+                    align: 'right',
+                    hidden: true,
+                    hideAnimation: Ext.os.is.Android ? false : {
+                        type: 'fadeOut',
+                        duration: 200
+                    },
+                    showAnimation: Ext.os.is.Android ? false : {
+                        type: 'fadeIn',
+                        duration: 200
+                    }
+                },
                 {
                     xtype: 'button',
                     id: 'addButton',
@@ -53757,8 +54030,9 @@ Ext.define('GPSName.view.Main', {
                     // Add a bunch of buttons into the toolbar
                     items: [
                         { height:'48px',iconAlign:'top',text:'home',iconMask: true, iconCls: 'home', id:'homeButton' },
-                        { height:'48px',iconAlign:'top',text:'add',iconMask: true, iconCls: 'add', id:'actionButton' },
-                        { height:'48px',iconAlign:'top',text:'users',iconMask: true, iconCls: 'user', id:'friendsButton' },
+                        { hidden: true,height:'48px',iconAlign:'top',text:'add',iconMask: true, iconCls: 'add', id:'actionButton' },
+                        { hidden: true,height:'48px',iconAlign:'top',text:'users',iconMask: true, iconCls: 'user', id:'friendsButton' },
+                         { hidden: true,height:'48px',iconAlign:'top',text:'places',iconMask: true, iconCls: 'bookmarks', id:'placesButton' },
                         { height:'48px',iconAlign:'top',text:'account',iconMask: true, iconCls: 'settings', id:'settingsButton' }
                     ]
                 }			
@@ -53924,8 +54198,8 @@ Ext.application({
     ],
 
     models: ['Locations','Locations_user','Tags','Settings','Places','User','Users'],
-    stores: ['Locations','Locations_user','Tags','Settings','Places','Users'],
-    views: ['Main','Locations','Locations_user','Tags','Add','Edit','Show','Users','Settings','CreateAccount','Places'],
+    stores: ['Locations','Locations_user','Locations_all','Tags','Settings','Places','Users'],
+    views: ['Main','Locations','Locations_all','Locations_user','Locations_user','Tags','Add','Edit','Show','Users','Settings','CreateAccount','Places'],
     controllers: ['Application'],
 
     icon: {
