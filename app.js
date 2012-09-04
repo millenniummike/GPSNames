@@ -49779,6 +49779,10 @@ Ext.define('GPSName.model.Users', {
             'gpsid',
             'email',
             'friend',
+            'connectionstatus',
+            'connection_direction',
+            'target_gpsname',
+            'target_user_id',
             {
       name: 'sortAndGroupName',
       convert: function(value, record)
@@ -49787,9 +49791,9 @@ Ext.define('GPSName.model.Users', {
       },
       getGroupString: function (record) {
 
-        if (record && record.data.friend) {
+        if (record && record.data.connectionstatus) {
 
-        return record.get('friend');
+        return record.get('connectionstatus');
 
         } else {
 
@@ -50132,9 +50136,7 @@ Ext.define('GPSName.view.Add', {
     updateGPS: function (position) {
         Ext.getCmp('lat').setValue('' + position.coords.latitude);
         Ext.getCmp('lon').setValue('' + position.coords.longitude);
-        
-            //alert ("attempt to add marker!")
-                
+          
             var image =  "images/icons/1.png";
             var title = "Marker";
 
@@ -50160,8 +50162,7 @@ Ext.define('GPSName.view.Add', {
                 });
 
             marker.setMap(map);
-            
-            //alert ("Added marker!")
+
     },
     errorGPS: function (position) {
         
@@ -50175,7 +50176,31 @@ Ext.define('GPSName.view.Add', {
                 Ext.getCmp('lat').setValue('' + position.coords.latitude);
                 Ext.getCmp('lon').setValue('' + position.coords.longitude);
                 
-        
+                    var image =  "images/icons/1.png";
+            var title = "Marker";
+
+            var myLatLng = new google.maps.LatLng(position.coords.latitude,position.coords.longitude);
+            var map = Ext.getCmp('map_add').getMap();
+            
+            var marker = new google.maps.Marker({
+              position: myLatLng,
+              icon: image,
+              map: map
+          });
+          
+          var contentString = '<div id="markercontent">'+
+                    ''+title+
+                    '</div>';
+
+                var infowindow = new google.maps.InfoWindow({
+                    content: contentString
+                });
+
+                google.maps.event.addListener(marker, 'click', function() {
+                infowindow.open(map,marker);
+                });
+
+            marker.setMap(map);
             
             
             };
@@ -50561,9 +50586,12 @@ Ext.define('GPSName.view.Users', {
         grouped: true,
         itemTpl: [
             '<div style="'+
-            '<tpl if="friend == \'true\'">color:green;</tpl>'+
+            '<tpl if="connectionstatus == \'Connected\'">color:green;</tpl>'+
+            '<tpl if="connectionstatus == \'Connect?\'">color:orange;</tpl>'+
             '">'+
-            '{gpsname}</div>'
+
+            '{gpsname}'+
+            '</div>'
         ].join('')
     }
 });
@@ -51104,7 +51132,7 @@ onlookupKeyup: function(field, e) {
         
         var locationsUserStore = Ext.getStore('Locations_user');
         
-        if (record.data.friend=='true'){             
+        if (record.data.connectionstatus=='Connected'){             
         
         locationsUserStore.clearFilter();
         locationsUserStore.load({
@@ -51115,8 +51143,54 @@ onlookupKeyup: function(field, e) {
          this.showLocationsUser.setRecord(record);
          this.getMain().push(this.showLocationsUser);
         }
-        else
-            {
+        
+        if (record.data.connectionstatus=='Connect?'&&record.data.connection_direction=='Incoming'){ 
+            Ext.Msg.prompt(
+    'Accept Connection!',
+    'Accept connection from to user?',
+    function (btn, value) {
+        if(btn == 'ok'){
+            
+            Ext.util.JSONP.request({
+            url: 'http://www.gpsname.com/index.php/login/api_confirm_connection',
+            callbackKey: 'callback',
+            params: {target_id:record.data.gpsid,message:'testing'},
+            success: function(response, request) {
+                // Unmask the viewport
+                Ext.Viewport.unmask();
+                    if (response.result !='OK')
+                    {
+                        Ext.Msg.alert('Connection to user Error', response.message);
+                    } 
+                    else 
+                    {
+                        
+                        
+                        Ext.Msg.alert('Connected!','');
+                         var store = Ext.getStore('Users');
+                        // clear all existing filters
+                        store.clearFilter(); 
+                        store.load();
+                        
+                    }
+            }
+        });
+            
+         }
+         else
+        {
+            
+        }
+    },
+    null,
+    false,
+    null,
+    { autoCapitalize : true, placeHolder : 'Message to user...' }
+);
+            
+        }
+        
+        if (record.data.connectionstatus=='None'){ 
     
     Ext.Msg.prompt(
     'Connect!',
@@ -51774,8 +51848,8 @@ Ext.define('GPSName.store.Users', {
         model: 'GPSName.model.Users',
         sorters: [
       {
-        property: 'friend',
-        direction: 'DESC'
+        property: 'connectionstatus',
+        direction: 'ASC'
       },
       {
         property: 'sortAndGroupName',
@@ -51792,18 +51866,24 @@ Ext.define('GPSName.store.Users', {
 	},
         getGroupString: function (record) {
 
-        if (record && record.data.friend) {
-            if (record.get('friend')=='true'){
+        if (record && record.data.connectionstatus) {
+            if (record.get('connectionstatus')=='Connect?'&&record.get('connection_direction')=='Incoming'){
+                return "Connections Requests?";
+            }
+            if (record.get('connectionstatus')=='Connect?'&&record.get('connection_direction')=='Outgoing'){
+                return "My Connection Requests";
+            }
+
+            if (record.get('connectionstatus')=='Connected'){
                 return "Connections";
             }
-            else
-            {
-            return "Other";
+            if (record.get('connectionstatus')=='None'){
+                return "Other";
             }
 
         } else {
 
-        return '';
+        return 'Other';
 
         }
 
