@@ -51242,10 +51242,10 @@ onlookupKeyup: function(field, e) {
     onContactEdit: function() {
     
    
-      if (!this.editContact) {
+      //if (!this.editContact) {
             
             this.editContact = Ext.create('GPSName.view.Edit');
-        }
+        //}
 
 
         // Bind the record onto the edit contact view
@@ -51267,6 +51267,7 @@ onlookupKeyup: function(field, e) {
 
         this.getMain().push(this.editContact);
         this.showDeleteButton();
+        this.showUpdateButton();
     },
     onAddContactChange: function() {
         this.showAddButton();
@@ -51401,11 +51402,14 @@ Ext.util.JSONP.request({
         onImportButton: function () {
         var record=this.showContact.getRecord();
 
-        if (!this.showAction) {
+        //if (!this.showAction) {
             this.showAction = Ext.create('GPSName.view.Add');
-        }
+        //}
+        
         this.showAction.setRecord(record);
         this.getMain().push(this.showAction);
+        this.showAddButton();
+        
     },
 
     onLocationUpdate: function() {
@@ -51468,9 +51472,9 @@ Ext.util.JSONP.request({
     
     onAction: function() {
         
-      if (!this.showAction) {
+     // if (!this.showAction) {
             this.showAction = Ext.create('GPSName.view.Add');
-      }
+     // }
         this.getMain().push(this.showAction);
         
         this.showAction.loadGPS();
