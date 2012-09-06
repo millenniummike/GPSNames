@@ -17,8 +17,6 @@ GPSNames APP
 
 <icon src="icon.png" />
 <icon src="icons/ios/icon.png" width="57" height="57" />
-<icon src="icons/ios/icon-72.png" gap:platform="ios" width="72" height="72" />
-<icon src="icons/ios/icon_at_2x.png" width="114" height="114" />
 <icon src="icons/android/ldpi.png" gap:platform="android" gap:density="ldpi" />
 <icon src="icons/android/mdpi.png" gap:platform="android" gap:density="mdpi" />
 <icon src="icons/android/hdpi.png" gap:platform="android" gap:density="hdpi" />
